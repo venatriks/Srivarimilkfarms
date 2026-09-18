@@ -280,12 +280,43 @@ class SrivariDatabase {
     if (!localStorage.getItem(DB_KEYS.USERS)) {
       localStorage.setItem(DB_KEYS.USERS, JSON.stringify(seedUsers));
     }
+
+    // Initialize products if none exist
     if (!localStorage.getItem(DB_KEYS.PRODUCTS)) {
       localStorage.setItem(DB_KEYS.PRODUCTS, JSON.stringify(seedProducts));
+    } else {
+      // Migrate old product image paths to the current GitHub Pages path
+      const products = JSON.parse(localStorage.getItem(DB_KEYS.PRODUCTS) || '[]');
+
+      const imageMap = {
+        'Pure A2 Desi Cow Milk': 'a2_milk.jpg',
+        'Traditional Vedic Bilona Ghee': 'bilona_ghee.jpg',
+        'Artisanal Fresh Farm Paneer': 'paneer.jpg',
+        'Earthen Pot Fresh A2 Curd': 'curd.jpg',
+        'Handcrafted White Makhan Butter': 'butter.jpg'
+      };
+
+      const updatedProducts = products.map(product => {
+        if (imageMap[product.name]) {
+          return {
+            ...product,
+            image: `${import.meta.env.BASE_URL}images/${imageMap[product.name]}`
+          };
+        }
+
+        return product;
+      });
+
+      localStorage.setItem(
+        DB_KEYS.PRODUCTS,
+        JSON.stringify(updatedProducts)
+      );
     }
+
     if (!localStorage.getItem(DB_KEYS.DELIVERIES)) {
       localStorage.setItem(DB_KEYS.DELIVERIES, JSON.stringify(seedDeliveries));
     }
+
     if (!localStorage.getItem(DB_KEYS.TRANSACTIONS)) {
       localStorage.setItem(DB_KEYS.TRANSACTIONS, JSON.stringify(seedTransactions));
     }
