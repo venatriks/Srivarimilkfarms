@@ -297,14 +297,24 @@ class SrivariDatabase {
       };
 
       const updatedProducts = products.map(product => {
-        if (imageMap[product.name]) {
-          return {
-            ...product,
-            image: `${import.meta.env.BASE_URL}images/${imageMap[product.name]}`
-          };
-        }
+        const image = imageMap[product.name]
+          ? `${import.meta.env.BASE_URL}images/${imageMap[product.name]}`
+          : product.image;
 
-        return product;
+        const nutritionalInfo = {
+          protein: product.nutritionalInfo?.protein || '3.4 g',
+          calcium: product.nutritionalInfo?.calcium || '125 mg',
+          calories: product.nutritionalInfo?.calories || '68 kcal',
+          carbs: product.nutritionalInfo?.carbs || '4.8 g',
+          fat: product.nutritionalInfo?.fat || '4.6 g',
+          ...product.nutritionalInfo
+        };
+
+        return {
+          ...product,
+          image,
+          nutritionalInfo
+        };
       });
 
       localStorage.setItem(
@@ -376,16 +386,13 @@ class SrivariDatabase {
       badge: "New Launch",
       inStock: true,
       stockCount: 100,
-      subscriptionAvailable: true,
-      labParameters: {
-        fatPercentage: "4.8%",
-        snfPercentage: "8.9%",
-        somaticCellCount: "Pass",
-        a2CaseinPurity: "100% DNA Certified A2",
-        antibiotics: "0.00%",
-        addedWater: "0.00%",
-        preservatives: "0.00%",
-        chillingTemperature: "3.8°C"
+      nutritionalInfo: {
+        calories: "68 kcal",
+        protein: "3.4 g",
+        carbs: "4.8 g",
+        fat: "4.6 g",
+        calcium: "125 mg",
+        ...(product.nutritionalInfo || {})
       },
       ...product
     };

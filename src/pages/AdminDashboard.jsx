@@ -42,7 +42,10 @@ export const AdminDashboard = () => {
     price: 80,
     unit: '1 Liter Bottle',
     description: '',
-    image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`
+    image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`,
+    protein: '3.4 g',
+    calcium: '125 mg',
+    calories: '68 kcal'
   });
 
   const handleAddSubmit = (e) => {
@@ -51,7 +54,22 @@ export const AdminDashboard = () => {
       showToast("Please fill in all product details", "error");
       return;
     }
-    addProduct(newProd);
+    const productData = {
+      name: newProd.name,
+      category: newProd.category,
+      price: newProd.price,
+      unit: newProd.unit,
+      description: newProd.description,
+      image: newProd.image,
+      nutritionalInfo: {
+        protein: newProd.protein || '3.4 g',
+        calcium: newProd.calcium || '125 mg',
+        calories: newProd.calories || '68 kcal',
+        carbs: '4.8 g',
+        fat: '4.6 g'
+      }
+    };
+    addProduct(productData);
     setActiveTab('products');
     setNewProd({
       name: '',
@@ -59,7 +77,10 @@ export const AdminDashboard = () => {
       price: 80,
       unit: '1 Liter Bottle',
       description: '',
-      image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`
+      image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`,
+      protein: '3.4 g',
+      calcium: '125 mg',
+      calories: '68 kcal'
     });
   };
 
@@ -530,14 +551,14 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-stone-200 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-3 border-t border-stone-200 text-xs">
                   <div>
                     <label className="text-stone-500 block font-medium">Price (₹)</label>
                     <input
                       type="number"
                       value={prod.price}
                       onChange={(e) => updateProductStockOrPrice(prod.id, { price: Number(e.target.value) })}
-                      className="w-full px-3 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
+                      className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
                     />
                   </div>
 
@@ -547,7 +568,52 @@ export const AdminDashboard = () => {
                       type="number"
                       value={prod.stockCount}
                       onChange={(e) => updateProductStockOrPrice(prod.id, { stockCount: Number(e.target.value) })}
-                      className="w-full px-3 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
+                      className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-stone-500 block font-medium">Protein</label>
+                    <input
+                      type="text"
+                      value={prod.nutritionalInfo?.protein || '3.4 g'}
+                      onChange={(e) => updateProductStockOrPrice(prod.id, {
+                        nutritionalInfo: {
+                          ...prod.nutritionalInfo,
+                          protein: e.target.value
+                        }
+                      })}
+                      className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-stone-500 block font-medium">Calcium</label>
+                    <input
+                      type="text"
+                      value={prod.nutritionalInfo?.calcium || '125 mg'}
+                      onChange={(e) => updateProductStockOrPrice(prod.id, {
+                        nutritionalInfo: {
+                          ...prod.nutritionalInfo,
+                          calcium: e.target.value
+                        }
+                      })}
+                      className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-stone-500 block font-medium">Energy</label>
+                    <input
+                      type="text"
+                      value={prod.nutritionalInfo?.calories || '68 kcal'}
+                      onChange={(e) => updateProductStockOrPrice(prod.id, {
+                        nutritionalInfo: {
+                          ...prod.nutritionalInfo,
+                          calories: e.target.value
+                        }
+                      })}
+                      className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
                     />
                   </div>
                 </div>
@@ -712,6 +778,42 @@ export const AdminDashboard = () => {
                 onChange={(e) => setNewProd({ ...newProd, unit: e.target.value })}
                 className="w-full p-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#042B1B] focus:outline-none"
               />
+            </div>
+
+            {/* Nutritional Info Fields */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="font-medium text-stone-600">Protein</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 3.4 g"
+                  value={newProd.protein}
+                  onChange={(e) => setNewProd({ ...newProd, protein: e.target.value })}
+                  className="w-full p-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#042B1B] focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-medium text-stone-600">Calcium</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 125 mg"
+                  value={newProd.calcium}
+                  onChange={(e) => setNewProd({ ...newProd, calcium: e.target.value })}
+                  className="w-full p-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#042B1B] focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-medium text-stone-600">Energy (Calories)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 68 kcal"
+                  value={newProd.calories}
+                  onChange={(e) => setNewProd({ ...newProd, calories: e.target.value })}
+                  className="w-full p-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#042B1B] focus:outline-none"
+                />
+              </div>
             </div>
 
             <div className="space-y-1">

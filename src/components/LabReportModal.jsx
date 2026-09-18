@@ -68,6 +68,22 @@ export const LabReportModal = () => {
             </div>
           </div>
 
+          {/* Nutritional Highlights Bar */}
+          <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-amber-200/80 shadow-sm grid grid-cols-3 gap-3 text-center">
+            <div>
+              <span className="text-stone-500 font-medium block text-[10px] uppercase">Protein</span>
+              <span className="font-bold text-[#0F3E2E] text-sm">{selectedLabProduct.nutritionalInfo?.protein || '3.4 g'}</span>
+            </div>
+            <div>
+              <span className="text-stone-500 font-medium block text-[10px] uppercase">Calcium</span>
+              <span className="font-bold text-[#0F3E2E] text-sm">{selectedLabProduct.nutritionalInfo?.calcium || '125 mg'}</span>
+            </div>
+            <div>
+              <span className="text-stone-500 font-medium block text-[10px] uppercase">Energy</span>
+              <span className="font-bold text-[#0F3E2E] text-sm">{selectedLabProduct.nutritionalInfo?.calories || selectedLabProduct.nutritionalInfo?.energy || '68 kcal'}</span>
+            </div>
+          </div>
+
           {/* Full Test Spectrum Table */}
           <div className="bg-white rounded-2xl border border-[#0F3E2E]/10 overflow-hidden shadow-sm">
             <div className="px-5 py-3 bg-[#0F3E2E]/5 border-b border-[#0F3E2E]/10 flex items-center justify-between">

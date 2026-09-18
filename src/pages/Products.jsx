@@ -176,13 +176,11 @@ export const Products = () => {
                   </div>
 
                   {/* Nutritional Micro List */}
-                  {product.nutritionalInfo && (
-                    <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
-                      <span>Protein: <strong className="text-stone-700">{product.nutritionalInfo.protein}</strong></span>
-                      <span>Calcium: <strong className="text-stone-700">{product.nutritionalInfo.calcium}</strong></span>
-                      <span>Energy: <strong className="text-stone-700">{product.nutritionalInfo.calories}</strong></span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
+                    <span>Protein: <strong className="text-stone-700">{product.nutritionalInfo?.protein || '3.4 g'}</strong></span>
+                    <span>Calcium: <strong className="text-stone-700">{product.nutritionalInfo?.calcium || '125 mg'}</strong></span>
+                    <span>Energy: <strong className="text-stone-700">{product.nutritionalInfo?.calories || product.nutritionalInfo?.energy || '68 kcal'}</strong></span>
+                  </div>
 
                 </div>
               </div>
