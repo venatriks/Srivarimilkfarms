@@ -26,7 +26,7 @@ export const Home = () => {
         {/* Background Image with Gradient Overlay */}
         <div className="absolute inset-0 z-0">
           <img
-            src="/images/hero.jpg"
+            src={`${import.meta.env.BASE_URL}images/hero.jpg`}
             alt="Srivari Milk Farms Landscape"
             className="w-full h-full object-cover object-center scale-105 transform filter brightness-90"
           />
@@ -343,7 +343,7 @@ export const Home = () => {
 
           <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-[#0F3E2E]/10">
             <img
-              src="/images/quality_lab.jpg"
+              src={`${import.meta.env.BASE_URL}images/quality_lab.jpg`}
               alt="NABL Accredited Quality Testing Lab"
               className="w-full h-[450px] object-cover"
             />

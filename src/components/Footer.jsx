@@ -40,7 +40,7 @@ export const Footer = () => {
           </div>
           <div className="flex items-center space-x-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
             <div className="w-8 h-8 rounded-full overflow-hidden border border-[#DFB33F] shrink-0 bg-white">
-              <img src="/images/logo.png" alt="Srivari Logo" className="w-full h-full object-cover" />
+              <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h5 className="text-xs font-bold text-white uppercase tracking-wider">Glass Bottle</h5>
@@ -63,7 +63,7 @@ export const Footer = () => {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#DFB33F] shadow-md bg-[#042B1B] shrink-0">
-                <img src="/images/logo.png" alt="Srivari Logo" className="w-full h-full object-cover" />
+                <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                 <span className="font-serif-display text-2xl font-bold text-white tracking-wide block">

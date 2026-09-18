@@ -24,7 +24,7 @@ export const AboutUs = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/30">
           <img
-            src="/images/hero.jpg"
+            src={`${import.meta.env.BASE_URL}images/hero.jpg`}
             alt="Gir cows grazing in organic farm pasture"
             className="w-full h-[400px] object-cover"
           />

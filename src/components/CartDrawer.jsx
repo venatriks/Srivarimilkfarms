@@ -30,7 +30,7 @@ export const CartDrawer = () => {
           <div className="p-6 bg-[#042B1B] text-white flex items-center justify-between border-b border-[#DFB33F]/30">
             <div className="flex items-center space-x-3">
               <div className="w-9 h-9 rounded-full overflow-hidden border border-[#DFB33F] bg-white shrink-0">
-                <img src="/images/logo.png" alt="Srivari Logo" className="w-full h-full object-cover" />
+                <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h2 className="font-serif-display text-xl font-bold">Your Farm Basket</h2>
@@ -50,7 +50,7 @@ export const CartDrawer = () => {
             {cart.length === 0 ? (
               <div className="text-center py-16 space-y-4">
                 <div className="w-16 h-16 bg-[#042B1B]/10 text-[#042B1B] rounded-full flex items-center justify-center mx-auto overflow-hidden border border-[#DFB33F] p-2">
-                  <img src="/images/logo.png" alt="Srivari Logo" className="w-full h-full object-cover rounded-full" />
+                  <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Logo" className="w-full h-full object-cover rounded-full" />
                 </div>
                 <h3 className="font-serif-display text-lg font-bold text-[#042B1B]">Your basket is empty</h3>
                 <p className="text-xs text-stone-500 max-w-xs mx-auto">

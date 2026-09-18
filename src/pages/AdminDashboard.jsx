@@ -42,7 +42,7 @@ export const AdminDashboard = () => {
     price: 80,
     unit: '1 Liter Bottle',
     description: '',
-    image: '/images/a2_milk.jpg'
+    image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`
   });
 
   const handleAddSubmit = (e) => {
@@ -59,7 +59,7 @@ export const AdminDashboard = () => {
       price: 80,
       unit: '1 Liter Bottle',
       description: '',
-      image: '/images/a2_milk.jpg'
+      image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`
     });
   };
 
@@ -745,7 +745,7 @@ export const AdminDashboard = () => {
             <div className="bg-[#042B1B] text-white p-6 flex items-center justify-between border-b border-[#DFB33F]/30 print:hidden">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden border border-[#DFB33F] bg-white shrink-0">
-                  <img src="/images/logo.png" alt="Srivari Logo" className="w-full h-full object-cover" />
+                  <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className="font-serif-display text-xl font-bold">5 AM Dispatch Manifest Preview</h3>
@@ -801,7 +801,7 @@ export const AdminDashboard = () => {
               
               <div className="border-b-2 border-[#042B1B] pb-4 flex flex-row items-start justify-between">
                 <div className="flex items-center space-x-4">
-                  <img src="/images/logo.png" alt="Srivari Milk Farms Logo" className="w-16 h-16 object-cover rounded-full border border-amber-500" />
+                  <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Milk Farms Logo" className="w-16 h-16 object-cover rounded-full border border-amber-500" />
                   <div>
                     <h1 className="text-2xl font-bold text-[#042B1B] tracking-tight font-serif-display">
                       SRIVARI MILK FARMS

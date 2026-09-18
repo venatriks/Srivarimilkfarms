@@ -36,7 +36,7 @@ export const Navbar = () => {
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#DFB33F] shadow-md group-hover:scale-105 transition-transform duration-300 bg-[#042B1B] shrink-0">
               <img
-                src="/images/logo.png"
+                src={`${import.meta.env.BASE_URL}images/logo.png`}
                 alt="Srivari Milk Farms Logo"
                 className="w-full h-full object-cover"
               />
@@ -66,8 +66,8 @@ export const Navbar = () => {
                 key={link.path}
                 to={link.path}
                 className={`text-sm font-medium transition-colors duration-200 relative py-1 ${isActive(link.path)
-                    ? 'text-[#042B1B] font-bold'
-                    : 'text-stone-700 hover:text-[#042B1B]'
+                  ? 'text-[#042B1B] font-bold'
+                  : 'text-stone-700 hover:text-[#042B1B]'
                   }`}
               >
                 {link.name}
@@ -193,8 +193,8 @@ export const Navbar = () => {
               to={link.path}
               onClick={() => setMobileMenuOpen(false)}
               className={`block px-3 py-2 rounded-xl text-base font-medium ${isActive(link.path)
-                  ? 'bg-[#042B1B] text-white font-semibold'
-                  : 'text-stone-800 hover:bg-[#042B1B]/5'
+                ? 'bg-[#042B1B] text-white font-semibold'
+                : 'text-stone-800 hover:bg-[#042B1B]/5'
                 }`}
             >
               {link.name}

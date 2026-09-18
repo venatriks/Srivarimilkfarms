@@ -70,7 +70,7 @@ export const Quality = () => {
       {/* Hero Image Banner */}
       <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/30">
         <img
-          src="/images/quality_lab.jpg"
+          src={`${import.meta.env.BASE_URL}images/quality_lab.jpg`}
           alt="Srivari Quality Testing Laboratory"
           className="w-full h-80 sm:h-96 object-cover"
         />
