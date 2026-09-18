@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-forest-primary: #042B1B;
+    --color-forest-dark: #021B11;
+    --color-forest-medium: #0B422B;
+    --color-forest-light: #145B3C;
+    --color-cream-bg: #FBF9F3;
+    --color-cream-card: #FFFFFF;
+    --color-gold-accent: #DFB33F;
+    --color-gold-light: #F3D779;
+    --color-gold-dark: #B3871C;
+  }
+
+  body {
+    background-color: #FBF9F3;
+    color: #16241c;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-serif-display {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f4ede0;
+}
+::-webkit-scrollbar-thumb {
+  background: #042B1B;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0B422B;
+}
+
+/* Glassmorphism utilities */
+.glass-panel {
+  background: rgba(251, 249, 243, 0.90);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(4, 43, 27, 0.08);
+}
+
+.glass-emerald {
+  background: rgba(4, 43, 27, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(223, 179, 63, 0.25);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #F3D779 0%, #DFB33F 50%, #B3871C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-bg-gradient {
+  background: linear-gradient(135deg, #F3D779 0%, #DFB33F 50%, #B3871C 100%);
+}
+
+.forest-bg-gradient {
+  background: linear-gradient(135deg, #042B1B 0%, #0B422B 60%, #021B11 100%);
+}
+
+/* Glow effects */
+@keyframes goldPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(223, 179, 63, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(223, 179, 63, 0.5); }
+}
+
+.animate-gold-pulse {
+  animation: goldPulse 3s ease-in-out infinite;
+}
+
+/* Print Stylesheet */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  
+  #printable-dispatch-sheet, #printable-dispatch-sheet * {
+    visibility: visible !important;
+  }
+  
+  #printable-dispatch-sheet {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}
