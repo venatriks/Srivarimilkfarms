@@ -29,12 +29,12 @@ const ScrollToTop = () => {
 export function App() {
   return (
     <AppProvider>
-      <Router>
+      <Router basename="/Srivarimilkfarms">
         <ScrollToTop />
         <div className="min-h-screen flex flex-col bg-[#FDFBF7] text-[#1C2B23] font-sans antialiased selection:bg-[#D4AF37] selection:text-[#0F3E2E]">
-          
+
           <Navbar />
-          
+
           <main className="flex-grow">
             <Routes>
               <Route path="/" element={<Home />} />
