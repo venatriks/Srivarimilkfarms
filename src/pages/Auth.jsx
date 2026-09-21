@@ -46,8 +46,12 @@ export const Auth = () => {
         
         {/* Header Banner */}
         <div className="bg-[#0F3E2E] text-white p-8 text-center relative border-b border-[#D4AF37]/30">
-          <div className="w-12 h-12 rounded-full bg-[#D4AF37] text-[#0F3E2E] flex items-center justify-center mx-auto mb-3 shadow-md">
-            <Milk className="w-6 h-6" />
+          <div className="w-16 h-16 rounded-full bg-white border-2 border-[#D4AF37] overflow-hidden mx-auto mb-3 shadow-md">
+            <img 
+              src={`${import.meta.env.BASE_URL}images/logo.jpeg`} 
+              alt="Srivari Milk Farms Logo" 
+              className="w-full h-full object-cover" 
+            />
           </div>
           <h2 className="font-serif-display text-2xl font-bold">
             Srivari Milk Farms Portal

@@ -1,36 +1,28 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../db/database';
 
 const AppContext = createContext();
 
+// Idle Timeout Duration: 30 minutes (in milliseconds)
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
 export const AppProvider = ({ children }) => {
+  const navigate = useNavigate();
+
   // Products state synced with DB
   const [products, setProducts] = useState(() => db.getProducts());
 
   // User list state synced with DB
   const [dbUsers, setDbUsers] = useState(() => db.getUsers());
 
-  // User session state
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('srivari_user');
-    return saved ? JSON.parse(saved) : db.getUsers()[1]; // Anita Sharma default customer
-  });
+  // User session state - Defaults to NULL (logged out) on site visit
+  const [user, setUser] = useState(null);
 
   // Cart state
   const [cart, setCart] = useState(() => {
     const saved = localStorage.getItem('srivari_cart');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: "p1-sub",
-        productId: "p1",
-        product: products[0] || db.getProducts()[0],
-        quantity: 2,
-        buyType: "subscription",
-        frequency: "daily",
-        startDate: new Date().toISOString().split('T')[0],
-        bottleType: "glass"
-      }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [cartOpen, setCartOpen] = useState(false);
@@ -86,6 +78,55 @@ export const AppProvider = ({ children }) => {
       setToast(null);
     }, 3500);
   };
+
+  // -------------------------------------------------------------
+  // 30-MINUTE IDLE TIMEOUT LOGOUT LOGIC
+  // -------------------------------------------------------------
+  const idleTimerRef = useRef(null);
+
+  const resetIdleTimer = () => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+
+    if (user) {
+      idleTimerRef.current = setTimeout(() => {
+        setUser(null);
+        localStorage.removeItem('srivari_user');
+        showToast("Logged out automatically due to 30 minutes of inactivity.", "info");
+      }, IDLE_TIMEOUT_MS);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      return;
+    }
+
+    // List of user activity events to reset idle timer
+    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'wheel'];
+
+    const handleUserActivity = () => {
+      resetIdleTimer();
+    };
+
+    // Attach listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, handleUserActivity);
+    });
+
+    // Start initial timer
+    resetIdleTimer();
+
+    // Clean up listeners and timer on unmount / logout
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, handleUserActivity);
+      });
+    };
+  }, [user]);
 
   // Sync products with DB
   const updateProductStockOrPrice = (productId, updates) => {
@@ -171,21 +212,18 @@ export const AppProvider = ({ children }) => {
     showToast("Database reset to factory defaults!");
   };
 
-  // Save active user & cart to localStorage
+  // Save cart to localStorage
   useEffect(() => {
     localStorage.setItem('srivari_cart', JSON.stringify(cart));
   }, [cart]);
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('srivari_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('srivari_user');
-    }
-  }, [user]);
-
   // Cart operations
   const addToCart = (product, quantity = 1, buyType = "one-time", frequency = "daily") => {
+    if (!user) {
+      showToast("Please log in to your account before adding items to cart or subscribing.", "info");
+      navigate('/login');
+      return false;
+    }
     setCart(prevCart => {
       const cartItemId = `${product.id}-${buyType}-${frequency}`;
       const existingIndex = prevCart.findIndex(item => item.id === cartItemId);
@@ -210,6 +248,7 @@ export const AppProvider = ({ children }) => {
       }
     });
     showToast(`Added ${product.name} (${buyType === 'subscription' ? 'Subscription' : 'One-time'}) to cart!`);
+    return true;
   };
 
   const removeFromCart = (cartItemId) => {
@@ -258,6 +297,7 @@ export const AppProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('srivari_user');
     showToast("Logged out successfully", "info");
   };
 

@@ -3,12 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Sparkles, ShieldCheck, Milk, Truck, Award, CheckCircle2,
   ArrowRight, HeartHandshake, FlaskConical, Snowflake, Leaf,
-  Star, ChevronRight, Calculator, FileText, Zap, RefreshCw
+  Star, ChevronRight, Calculator, FileText, Zap, RefreshCw, Lock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const Home = () => {
-  const { products, addToCart, setSelectedLabProduct, showToast } = useApp();
+  const { products, addToCart, setSelectedLabProduct, showToast, user } = useApp();
   const navigate = useNavigate();
 
   // Interactive Milk Calculator State
@@ -224,15 +224,19 @@ export const Home = () => {
                   <div className="flex space-x-2">
                     <button
                       onClick={() => addToCart(product, 1, 'subscription')}
-                      className="px-3.5 py-2 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm"
+                      className="px-3.5 py-2 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1"
+                      title={!user ? "Login required to subscribe" : "Subscribe for daily/alternate delivery"}
                     >
-                      Subscribe
+                      {!user && <Lock className="w-3 h-3 text-[#0F3E2E]" />}
+                      <span>Subscribe</span>
                     </button>
                     <button
                       onClick={() => addToCart(product, 1, 'one-time')}
-                      className="px-3.5 py-2 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm"
+                      className="px-3.5 py-2 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1"
+                      title={!user ? "Login required to add to cart" : "One-time purchase"}
                     >
-                      Buy Once
+                      {!user && <Lock className="w-3 h-3 text-[#D4AF37]" />}
+                      <span>Buy Once</span>
                     </button>
                   </div>
                 </div>
@@ -325,10 +329,16 @@ export const Home = () => {
 
                 <button
                   onClick={() => addToCart(products[0], Math.ceil(Number(calculatedDailyLiters)), 'subscription')}
-                  className="w-full py-3 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#18523f] transition-all shadow-md"
+                  className="w-full py-3 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#18523f] transition-all shadow-md flex items-center justify-center space-x-2"
                 >
-                  Start {calculatedDailyLiters}L Daily Subscription
+                  {!user && <Lock className="w-4 h-4 text-[#D4AF37]" />}
+                  <span>Start {calculatedDailyLiters}L Daily Subscription</span>
                 </button>
+                {!user && (
+                  <p className="text-[11px] text-amber-900 bg-amber-50 py-1.5 px-3 rounded-lg border border-amber-300 font-semibold text-center flex items-center justify-center space-x-1">
+                    <span>🔒 Customers must log in to add items to cart</span>
+                  </p>
+                )}
               </div>
 
             </div>

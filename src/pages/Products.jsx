@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Search, Filter, Star, Milk, ShieldCheck, FlaskConical, 
-  Plus, Sparkles, Check, ChevronDown, RefreshCw 
+  Plus, Sparkles, Check, ChevronDown, RefreshCw, Lock, User 
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const Products = () => {
-  const { products, addToCart, setSelectedLabProduct } = useApp();
+  const { products, addToCart, setSelectedLabProduct, user } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
@@ -94,6 +95,33 @@ export const Products = () => {
         </div>
 
       </div>
+
+      {/* Login Required Notice Banner */}
+      {!user && (
+        <div className="bg-amber-50 rounded-3xl p-5 border border-[#D4AF37]/50 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-[#0F3E2E] text-[#D4AF37] flex items-center justify-center shrink-0 shadow-sm">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-[#0F3E2E] flex items-center space-x-2">
+                <span>Customer Login Required for Subscriptions & Cart</span>
+                <span className="bg-[#0F3E2E]/10 text-[#0F3E2E] text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md">Notice</span>
+              </h4>
+              <p className="text-xs text-stone-600 mt-0.5">
+                Customers are required to log in to their account before adding any products to the cart or starting a daily milk subscription.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/login"
+            className="px-5 py-2.5 bg-[#0F3E2E] text-white text-xs font-bold rounded-xl hover:bg-[#18523f] transition-all whitespace-nowrap shadow-md flex items-center space-x-2 shrink-0 border border-[#D4AF37]/40"
+          >
+            <User className="w-4 h-4 text-[#D4AF37]" />
+            <span>Log In Now</span>
+          </Link>
+        </div>
+      )}
 
       {/* Product Cards Grid */}
       {filteredProducts.length === 0 ? (
@@ -197,17 +225,19 @@ export const Products = () => {
                   {product.subscriptionAvailable && (
                     <button
                       onClick={() => addToCart(product, 1, 'subscription')}
-                      className="px-3.5 py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm"
-                      title="Subscribe for daily/alternate delivery"
+                      className="px-3.5 py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1"
+                      title={!user ? "Login required to subscribe" : "Subscribe for daily/alternate delivery"}
                     >
-                      Subscribe
+                      {!user && <Lock className="w-3 h-3 text-[#0F3E2E]" />}
+                      <span>Subscribe</span>
                     </button>
                   )}
                   <button
                     onClick={() => addToCart(product, 1, 'one-time')}
                     className="px-3.5 py-2.5 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1"
+                    title={!user ? "Login required to add to cart" : "One-time purchase"}
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    {!user ? <Lock className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Plus className="w-3.5 h-3.5" />}
                     <span>Buy Once</span>
                   </button>
                 </div>
