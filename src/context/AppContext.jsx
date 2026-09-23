@@ -30,7 +30,9 @@ export const AppProvider = ({ children }) => {
   const [supabaseActive, setSupabaseActive] = useState(false);
 
   // User list state synced with DB
-  const [dbUsers, setDbUsers] = useState(() => db.getUsers());
+  const [dbUsers, setDbUsers] = useState(() =>
+    isSupabaseConfigured() ? [] : db.getUsers()
+  );
 
   // User session state - Defaults to NULL (logged out) on site visit
   const [user, setUser] = useState(null);
@@ -195,28 +197,46 @@ export const AppProvider = ({ children }) => {
 
       // 2. Fetch & Sync Profiles / User Accounts
       const fetchProfiles = async () => {
+        if (!isSupabaseConfigured()) {
+          return;
+        }
+
         try {
-          const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-          if (!error && data && data.length > 0) {
-            const mapped = data.map(u => ({
-              id: u.id,
-              name: u.name,
-              email: u.email,
-              phone: u.phone || '',
-              role: u.role || 'customer',
-              address: u.address || '',
-              walletBalance: Number(u.wallet_balance || 1000),
-              subscriptionActive: u.subscription_active ?? true,
-              status: u.status || 'Active',
-              createdAt: u.created_at ? u.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
-            }));
-            setDbUsers(mapped);
+          const {
+            data,
+            error
+          } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (error) {
+            console.error('Error fetching profiles from Supabase:', error);
+            return;
           }
+
+          const mapped = (data || []).map(u => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone || '',
+            role: u.role || 'customer',
+            address: u.address || '',
+            walletBalance: Number(u.wallet_balance || 1000),
+            subscriptionActive: u.subscription_active ?? true,
+            status: u.status || 'Active',
+            createdAt: u.created_at
+              ? u.created_at.split('T')[0]
+              : new Date().toISOString().split('T')[0]
+          }));
+
+          // Supabase is the source of truth.
+          // Replace the entire user list, including when Supabase returns zero rows.
+          setDbUsers(mapped);
         } catch (e) {
-          console.error("Error fetching profiles from Supabase", e);
+          console.error('Error fetching profiles from Supabase:', e);
         }
       };
-
       // 3. Fetch & Sync 5 AM Deliveries
       const fetchDeliveries = async () => {
         try {
