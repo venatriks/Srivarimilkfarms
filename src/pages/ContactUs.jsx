@@ -3,7 +3,7 @@ import { MapPin, Phone, Mail, Clock, Send, CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const ContactUs = () => {
-  const { showToast } = useApp();
+  const { showToast, submitContactQuery } = useApp();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -12,9 +12,13 @@ export const ContactUs = () => {
     message: ''
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    showToast("Message sent to Srivari Farm Care Desk! We will call you back shortly.");
+    if (!formData.name || !formData.email || !formData.message) {
+      showToast("Please fill in all required contact details.", "error");
+      return;
+    }
+    await submitContactQuery(formData);
     setFormData({ name: '', email: '', phone: '', subject: 'Milk Subscription Inquiry', message: '' });
   };
 

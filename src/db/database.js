@@ -6,7 +6,9 @@ const DB_KEYS = {
   SUBSCRIPTIONS: 'srivari_db_subscriptions',
   DELIVERIES: 'srivari_db_deliveries',
   TRANSACTIONS: 'srivari_db_transactions',
-  LOGS: 'srivari_db_logs'
+  LOGS: 'srivari_db_logs',
+  CONTACT_QUERIES: 'srivari_db_contact_queries',
+  EMPLOYEES: 'srivari_db_employees'
 };
 
 // Initial Seed Database Records
@@ -443,6 +445,160 @@ class SrivariDatabase {
     return JSON.parse(localStorage.getItem(DB_KEYS.LOGS) || '[]');
   }
 
+  // --- CONTACT QUERIES CRUD ---
+  getContactQueries() {
+    const defaultQueries = [
+      {
+        id: "query-1001",
+        name: "Sunil Varma",
+        email: "sunil.v@example.com",
+        phone: "+91 98111 22334",
+        subject: "Milk Subscription Inquiry",
+        message: "Would like to start daily morning 2L A2 milk delivery at Indiranagar from tomorrow.",
+        status: "Pending",
+        created_at: new Date(Date.now() - 3600000).toISOString()
+      },
+      {
+        id: "query-1002",
+        name: "Meenakshi Iyer",
+        email: "meenakshi@example.com",
+        phone: "+91 97222 33445",
+        subject: "Weekend Farm Tour Booking",
+        message: "Looking to visit Srivari Farm with family this Sunday 8 AM. Please confirm availability.",
+        status: "In Progress",
+        created_at: new Date(Date.now() - 10800000).toISOString()
+      }
+    ];
+
+    const saved = localStorage.getItem(DB_KEYS.CONTACT_QUERIES);
+    if (!saved) {
+      localStorage.setItem(DB_KEYS.CONTACT_QUERIES, JSON.stringify(defaultQueries));
+      return defaultQueries;
+    }
+    return JSON.parse(saved);
+  }
+
+  saveContactQueries(queries) {
+    localStorage.setItem(DB_KEYS.CONTACT_QUERIES, JSON.stringify(queries));
+  }
+
+  saveContactQuery(query) {
+    const queries = this.getContactQueries();
+    const newQuery = {
+      id: query.id || `query-${Date.now()}`,
+      status: "Pending",
+      created_at: new Date().toISOString(),
+      ...query
+    };
+    queries.unshift(newQuery);
+    this.saveContactQueries(queries);
+    this.logAction("CONTACT_QUERY_RECEIVED", `New customer query from ${query.name} (${query.email})`);
+    return newQuery;
+  }
+
+  updateContactQueryStatus(id, status) {
+    if (status === 'Completed') {
+      this.deleteContactQuery(id);
+      this.logAction("CONTACT_QUERY_COMPLETED", `Completed and removed active query ID: ${id}`);
+    } else {
+      const queries = this.getContactQueries().map(q => q.id === id ? { ...q, status } : q);
+      this.saveContactQueries(queries);
+      this.logAction("CONTACT_QUERY_UPDATED", `Updated query ID ${id} status to ${status}`);
+    }
+  }
+
+  // --- EMPLOYEES CRUD ---
+  getEmployees() {
+    const defaultEmployees = [
+      {
+        id: "emp-101",
+        name: "Ramesh Gowda",
+        phone: "+91 98765 11223",
+        email: "ramesh.gowda@srivarimilkfarms.com",
+        role: "Delivery Agent (Route #4)",
+        category: "Delivery Agent",
+        address: "D.Hirehal Village, Anantapur Dist, AP",
+        joiningDate: "2025-06-15",
+        salary: 22000,
+        status: "Active"
+      },
+      {
+        id: "emp-102",
+        name: "Suresh Patil",
+        phone: "+91 97444 88990",
+        email: "suresh.p@srivarimilkfarms.com",
+        role: "Delivery Agent (Route #1)",
+        category: "Delivery Agent",
+        address: "Rajeev Nagar, Rayadurg, AP",
+        joiningDate: "2025-08-01",
+        salary: 20000,
+        status: "Active"
+      },
+      {
+        id: "emp-103",
+        name: "Dr. Vijay Kumar",
+        phone: "+91 99000 44556",
+        email: "dr.vijay@srivarimilkfarms.com",
+        role: "Quality Inspector & Dairy Specialist",
+        category: "Internal Staff",
+        address: "Survey 197/A Farm HQ, Rayadurg Taluk",
+        joiningDate: "2024-01-10",
+        salary: 45000,
+        status: "Active"
+      },
+      {
+        id: "emp-104",
+        name: "Manjunath B",
+        phone: "+91 98450 77112",
+        email: "manjunath@srivarimilkfarms.com",
+        role: "Farm Operations Manager",
+        category: "Internal Staff",
+        address: "Anantapur Town, AP",
+        joiningDate: "2024-03-15",
+        salary: 38000,
+        status: "Active"
+      }
+    ];
+
+    const saved = localStorage.getItem(DB_KEYS.EMPLOYEES);
+    if (!saved) {
+      localStorage.setItem(DB_KEYS.EMPLOYEES, JSON.stringify(defaultEmployees));
+      return defaultEmployees;
+    }
+    return JSON.parse(saved);
+  }
+
+  saveEmployees(employees) {
+    localStorage.setItem(DB_KEYS.EMPLOYEES, JSON.stringify(employees));
+  }
+
+  addEmployee(emp) {
+    const employees = this.getEmployees();
+    const newEmp = {
+      id: emp.id || `emp-${Date.now()}`,
+      joiningDate: emp.joiningDate || new Date().toISOString().split('T')[0],
+      salary: Number(emp.salary || 20000),
+      status: emp.status || "Active",
+      ...emp
+    };
+    employees.unshift(newEmp);
+    this.saveEmployees(employees);
+    this.logAction("EMPLOYEE_ADDED", `Added employee: ${emp.name} (${emp.category})`);
+    return newEmp;
+  }
+
+  updateEmployee(id, updates) {
+    const employees = this.getEmployees().map(e => e.id === id ? { ...e, ...updates } : e);
+    this.saveEmployees(employees);
+    this.logAction("EMPLOYEE_UPDATED", `Updated employee ID: ${id}`);
+  }
+
+  deleteEmployee(id) {
+    const employees = this.getEmployees().filter(e => e.id !== id);
+    this.saveEmployees(employees);
+    this.logAction("EMPLOYEE_DELETED", `Deleted employee ID: ${id}`);
+  }
+
   // --- SYSTEM DUMP & RESTORE ---
   exportBackupJSON() {
     const backupData = {
@@ -452,6 +608,8 @@ class SrivariDatabase {
       products: this.getProducts(),
       deliveries: this.getDeliveries(),
       transactions: JSON.parse(localStorage.getItem(DB_KEYS.TRANSACTIONS) || '[]'),
+      queries: this.getContactQueries(),
+      employees: this.getEmployees(),
       logs: this.getLogs()
     };
     return JSON.stringify(backupData, null, 2);
@@ -464,6 +622,8 @@ class SrivariDatabase {
       if (data.products) localStorage.setItem(DB_KEYS.PRODUCTS, JSON.stringify(data.products));
       if (data.deliveries) localStorage.setItem(DB_KEYS.DELIVERIES, JSON.stringify(data.deliveries));
       if (data.transactions) localStorage.setItem(DB_KEYS.TRANSACTIONS, JSON.stringify(data.transactions));
+      if (data.queries) localStorage.setItem(DB_KEYS.CONTACT_QUERIES, JSON.stringify(data.queries));
+      if (data.employees) localStorage.setItem(DB_KEYS.EMPLOYEES, JSON.stringify(data.employees));
       this.logAction("SYSTEM_RESTORE", "Restored database from JSON backup file");
       return true;
     } catch (e) {
@@ -477,6 +637,8 @@ class SrivariDatabase {
     localStorage.setItem(DB_KEYS.PRODUCTS, JSON.stringify(seedProducts));
     localStorage.setItem(DB_KEYS.DELIVERIES, JSON.stringify(seedDeliveries));
     localStorage.setItem(DB_KEYS.TRANSACTIONS, JSON.stringify(seedTransactions));
+    localStorage.removeItem(DB_KEYS.CONTACT_QUERIES);
+    localStorage.removeItem(DB_KEYS.EMPLOYEES);
     localStorage.removeItem(DB_KEYS.LOGS);
     this.logAction("FACTORY_RESET", "Reset database to Srivari Milk Farms initial seeds");
   }

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, LogOut, ShieldAlert, Menu, X, Sparkles, ChevronDown } from 'lucide-react';
+import { ShoppingBag, User, LogOut, ShieldAlert, Menu, X, Sparkles, ChevronDown, Database } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const Navbar = () => {
-  const { user, logout, cartItemCount, setCartOpen } = useApp();
+  const { user, logout, cartItemCount, setCartOpen, supabaseActive } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
