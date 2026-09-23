@@ -28,7 +28,7 @@ const ScrollToTop = () => {
 
 export function App() {
   return (
-    <Router basename="/Srivarimilkfarms">
+    <Router>
       <AppProvider>
         <ScrollToTop />
         <div className="min-h-screen flex flex-col bg-[#FDFBF7] text-[#1C2B23] font-sans antialiased selection:bg-[#D4AF37] selection:text-[#0F3E2E]">
