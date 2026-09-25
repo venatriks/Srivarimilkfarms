@@ -8,7 +8,8 @@ const DB_KEYS = {
   TRANSACTIONS: 'srivari_db_transactions',
   LOGS: 'srivari_db_logs',
   CONTACT_QUERIES: 'srivari_db_contact_queries',
-  EMPLOYEES: 'srivari_db_employees'
+  EMPLOYEES: 'srivari_db_employees',
+  ONE_TIME_ORDERS: 'srivari_db_one_time_orders'
 };
 
 // Initial Seed Database Records
@@ -272,6 +273,47 @@ export const seedTransactions = [
   }
 ];
 
+export const seedOneTimeOrders = [
+  {
+    id: "OTO-88101",
+    customerName: "Kavitha Rao",
+    customerEmail: "kavitha.rao@example.com",
+    customerPhone: "+91 98450 12345",
+    address: "Flat 204, Windmills of Your Mind, EPIP Zone, Whitefield, Bengaluru - 560066",
+    deliverySlot: "5:30 AM - 6:30 AM",
+    instructions: "Leave at door step inside milk basket",
+    items: [
+      { name: "Traditional Vedic Bilona Ghee (1L Glass Jar)", quantity: 1, price: 1400 },
+      { name: "Artisanal Fresh Farm Paneer (200g Pack)", quantity: 2, price: 140 }
+    ],
+    totalAmount: 1680,
+    paymentMethod: "UPI Instant Pay",
+    paymentStatus: "Paid",
+    status: "Confirmed",
+    orderDate: "2026-09-23",
+    created_at: new Date().toISOString()
+  },
+  {
+    id: "OTO-88102",
+    customerName: "Suresh Menon",
+    customerEmail: "suresh.m@example.com",
+    customerPhone: "+91 99012 34567",
+    address: "Villa 45, Prestige Ozone, Whitefield, Bengaluru - 560066",
+    deliverySlot: "6:30 AM - 7:30 AM",
+    instructions: "Call on arrival",
+    items: [
+      { name: "Earthen Pot Fresh A2 Curd (500g Matka)", quantity: 2, price: 65 },
+      { name: "Handcrafted White Makhan Butter (250g Tub)", quantity: 1, price: 210 }
+    ],
+    totalAmount: 340,
+    paymentMethod: "Pay on Morning Delivery",
+    paymentStatus: "Pending",
+    status: "Processing",
+    orderDate: "2026-09-23",
+    created_at: new Date().toISOString()
+  }
+];
+
 // Core Database Utility Class
 class SrivariDatabase {
   constructor() {
@@ -331,6 +373,10 @@ class SrivariDatabase {
 
     if (!localStorage.getItem(DB_KEYS.TRANSACTIONS)) {
       localStorage.setItem(DB_KEYS.TRANSACTIONS, JSON.stringify(seedTransactions));
+    }
+
+    if (!localStorage.getItem(DB_KEYS.ONE_TIME_ORDERS)) {
+      localStorage.setItem(DB_KEYS.ONE_TIME_ORDERS, JSON.stringify(seedOneTimeOrders));
     }
   }
 
@@ -599,6 +645,48 @@ class SrivariDatabase {
     this.logAction("EMPLOYEE_DELETED", `Deleted employee ID: ${id}`);
   }
 
+  // --- ONE-TIME ORDERS CRUD ---
+  getOneTimeOrders() {
+    const saved = localStorage.getItem(DB_KEYS.ONE_TIME_ORDERS);
+    if (!saved) {
+      localStorage.setItem(DB_KEYS.ONE_TIME_ORDERS, JSON.stringify(seedOneTimeOrders));
+      return seedOneTimeOrders;
+    }
+    return JSON.parse(saved);
+  }
+
+  saveOneTimeOrders(orders) {
+    localStorage.setItem(DB_KEYS.ONE_TIME_ORDERS, JSON.stringify(orders));
+  }
+
+  addOneTimeOrder(order) {
+    const orders = this.getOneTimeOrders();
+    const newOrder = {
+      id: order.id || `OTO-${Math.floor(10000 + Math.random() * 90000)}`,
+      orderDate: order.orderDate || new Date().toISOString().split('T')[0],
+      paymentStatus: order.paymentStatus || 'Paid',
+      status: order.status || 'Confirmed',
+      created_at: new Date().toISOString(),
+      ...order
+    };
+    orders.unshift(newOrder);
+    this.saveOneTimeOrders(orders);
+    this.logAction("ONE_TIME_ORDER_PLACED", `New one-time order ${newOrder.id} placed for ₹${newOrder.totalAmount}`);
+    return newOrder;
+  }
+
+  updateOneTimeOrderStatus(id, status) {
+    const orders = this.getOneTimeOrders().map(o => o.id === id ? { ...o, status } : o);
+    this.saveOneTimeOrders(orders);
+    this.logAction("ONE_TIME_ORDER_STATUS_CHANGED", `Updated one-time order ${id} status to ${status}`);
+  }
+
+  updateOneTimePaymentStatus(id, paymentStatus) {
+    const orders = this.getOneTimeOrders().map(o => o.id === id ? { ...o, paymentStatus } : o);
+    this.saveOneTimeOrders(orders);
+    this.logAction("ONE_TIME_ORDER_PAYMENT_CHANGED", `Updated one-time order ${id} payment status to ${paymentStatus}`);
+  }
+
   // --- SYSTEM DUMP & RESTORE ---
   exportBackupJSON() {
     const backupData = {
@@ -610,6 +698,7 @@ class SrivariDatabase {
       transactions: JSON.parse(localStorage.getItem(DB_KEYS.TRANSACTIONS) || '[]'),
       queries: this.getContactQueries(),
       employees: this.getEmployees(),
+      oneTimeOrders: this.getOneTimeOrders(),
       logs: this.getLogs()
     };
     return JSON.stringify(backupData, null, 2);
@@ -624,6 +713,7 @@ class SrivariDatabase {
       if (data.transactions) localStorage.setItem(DB_KEYS.TRANSACTIONS, JSON.stringify(data.transactions));
       if (data.queries) localStorage.setItem(DB_KEYS.CONTACT_QUERIES, JSON.stringify(data.queries));
       if (data.employees) localStorage.setItem(DB_KEYS.EMPLOYEES, JSON.stringify(data.employees));
+      if (data.oneTimeOrders) localStorage.setItem(DB_KEYS.ONE_TIME_ORDERS, JSON.stringify(data.oneTimeOrders));
       this.logAction("SYSTEM_RESTORE", "Restored database from JSON backup file");
       return true;
     } catch (e) {
@@ -637,6 +727,7 @@ class SrivariDatabase {
     localStorage.setItem(DB_KEYS.PRODUCTS, JSON.stringify(seedProducts));
     localStorage.setItem(DB_KEYS.DELIVERIES, JSON.stringify(seedDeliveries));
     localStorage.setItem(DB_KEYS.TRANSACTIONS, JSON.stringify(seedTransactions));
+    localStorage.setItem(DB_KEYS.ONE_TIME_ORDERS, JSON.stringify(seedOneTimeOrders));
     localStorage.removeItem(DB_KEYS.CONTACT_QUERIES);
     localStorage.removeItem(DB_KEYS.EMPLOYEES);
     localStorage.removeItem(DB_KEYS.LOGS);

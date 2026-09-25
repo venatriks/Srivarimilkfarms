@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Milk, Truck, Package, Plus, Edit, Check, Database,
   DollarSign, Users, AlertCircle, Search, Printer, Sparkles, CheckCircle, X, MapPin, Phone, Calendar,
-  Download, Upload, RefreshCw, Trash2, UserPlus, Lock, Key, Activity, LogIn, ArrowLeft, MessageSquare, Briefcase, UserCheck
+  Download, Upload, RefreshCw, Trash2, UserPlus, Lock, Key, Activity, LogIn, ArrowLeft, MessageSquare, Briefcase, UserCheck, ShoppingBag, Eye, CreditCard, Tag, Filter
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -17,6 +17,7 @@ export const AdminDashboard = () => {
     orders,
     contactQueries, updateContactQueryStatus, deleteContactQuery,
     employees, addEmployee, updateEmployee, deleteEmployee,
+    oneTimeOrders, updateOneTimeOrderStatus, updateOneTimePaymentStatus,
     exportDatabaseBackup, importDatabaseBackup, resetDatabaseToDefaults,
     dbLogs, showToast, supabaseActive
   } = useApp();
@@ -73,10 +74,14 @@ export const AdminDashboard = () => {
   }
 
 
-  const [activeTab, setActiveTab] = useState('distribution'); // 'distribution' | 'products' | 'users' | 'queries' | 'database' | 'add'
+  const [activeTab, setActiveTab] = useState('distribution'); // 'distribution' | 'users' | 'products' | 'queries' | 'employees' | 'onetime-orders' | 'database' | 'add'
   const [searchDist, setSearchDist] = useState('');
   const [searchUsers, setSearchUsers] = useState('');
   const [searchQueries, setSearchQueries] = useState('');
+  const [searchOneTimeOrders, setSearchOneTimeOrders] = useState('');
+  const [oneTimeStatusFilter, setOneTimeStatusFilter] = useState('All');
+  const [oneTimePaymentFilter, setOneTimePaymentFilter] = useState('All');
+  const [selectedOneTimeOrderDetails, setSelectedOneTimeOrderDetails] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split('T')[0]);
   const [runnerName, setRunnerName] = useState('Ramesh Gowda (Route #4)');
@@ -249,6 +254,20 @@ export const AdminDashboard = () => {
     return matchesCategory && matchesSearch;
   });
 
+  const filteredOneTimeOrders = (oneTimeOrders || []).filter(o => {
+    const matchesStatus = oneTimeStatusFilter === 'All' || o.status === oneTimeStatusFilter;
+    const matchesPayment = oneTimePaymentFilter === 'All' || o.paymentStatus === oneTimePaymentFilter;
+    const itemsText = (o.items || []).map(i => i.name).join(' ');
+    const matchesSearch =
+      (o.id || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
+      (o.customerName || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
+      (o.customerEmail || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
+      (o.customerPhone || '').includes(searchOneTimeOrders) ||
+      (o.address || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
+      itemsText.toLowerCase().includes(searchOneTimeOrders.toLowerCase());
+    return matchesStatus && matchesPayment && matchesSearch;
+  });
+
   const deliveryAgentsCount = (employees || []).filter(e => e.category === 'Delivery Agent').length;
   const internalStaffCount = (employees || []).filter(e => e.category === 'Internal Staff').length;
   const totalPayroll = (employees || []).reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
@@ -398,7 +417,7 @@ export const AdminDashboard = () => {
 
       {/* Navigation Tabs Container - Responsive Layout with Zero Overflow */}
       <div className="bg-[#FBF9F3] p-2.5 rounded-3xl border border-stone-200/90 shadow-xs">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
 
           <button
             onClick={() => setActiveTab('distribution')}
@@ -434,6 +453,18 @@ export const AdminDashboard = () => {
           >
             <Package className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">Products ({products.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('onetime-orders')}
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
+              activeTab === 'onetime-orders'
+                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+            }`}
+          >
+            <ShoppingBag className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
+            <span className="truncate">One-Time Orders ({oneTimeOrders ? oneTimeOrders.length : 0})</span>
           </button>
 
           <button
@@ -474,7 +505,7 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('add')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border col-span-2 sm:col-span-1 ${
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
               activeTab === 'add'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
@@ -1910,6 +1941,312 @@ export const AdminDashboard = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: One-Time Orders Management */}
+      {activeTab === 'onetime-orders' && (
+        <div className="bg-white rounded-3xl border border-[#042B1B]/10 shadow-md p-6 space-y-6">
+
+          {/* Header & Search / Filters */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-stone-100 pb-5">
+            <div>
+              <h3 className="font-serif-display text-xl font-bold text-[#042B1B] flex items-center space-x-2">
+                <ShoppingBag className="w-5 h-5 text-[#DFB33F]" />
+                <span>One-Time Orders Database</span>
+              </h3>
+              <p className="text-xs text-stone-500 mt-0.5">
+                View & manage non-subscription direct product orders, customer info, delivery details, and payment status.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Search */}
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search Order ID, name, phone, product..."
+                  value={searchOneTimeOrders}
+                  onChange={(e) => setSearchOneTimeOrders(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-stone-50 rounded-xl border border-stone-200 text-xs text-[#042B1B] focus:outline-none focus:border-[#042B1B]"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <select
+                value={oneTimeStatusFilter}
+                onChange={(e) => setOneTimeStatusFilter(e.target.value)}
+                className="px-3 py-2 bg-stone-50 rounded-xl border border-stone-200 text-xs font-semibold text-[#042B1B] focus:outline-none"
+              >
+                <option value="All">All Order Statuses</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Processing">Processing</option>
+                <option value="In Transit">In Transit</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+
+              {/* Payment Filter */}
+              <select
+                value={oneTimePaymentFilter}
+                onChange={(e) => setOneTimePaymentFilter(e.target.value)}
+                className="px-3 py-2 bg-stone-50 rounded-xl border border-stone-200 text-xs font-semibold text-[#042B1B] focus:outline-none"
+              >
+                <option value="All">All Payment Statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
+              </select>
+            </div>
+          </div>
+
+          {/* KPI Summary Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
+              <span className="text-stone-500 font-medium">Total One-Time Orders</span>
+              <p className="font-serif-display text-2xl font-bold text-[#042B1B]">{oneTimeOrders ? oneTimeOrders.length : 0}</p>
+            </div>
+            <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
+              <span className="text-stone-500 font-medium">One-Time Revenue</span>
+              <p className="font-serif-display text-2xl font-bold text-emerald-800">
+                ₹{(oneTimeOrders || []).reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
+              <span className="text-stone-500 font-medium">Pending Delivery</span>
+              <p className="font-serif-display text-2xl font-bold text-amber-700">
+                {(oneTimeOrders || []).filter(o => o.status === 'Confirmed' || o.status === 'Processing' || o.status === 'In Transit').length} Orders
+              </p>
+            </div>
+            <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
+              <span className="text-stone-500 font-medium">Completed / Delivered</span>
+              <p className="font-serif-display text-2xl font-bold text-[#042B1B]">
+                {(oneTimeOrders || []).filter(o => o.status === 'Delivered').length} Orders
+              </p>
+            </div>
+          </div>
+
+          {/* Orders Data Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="bg-[#042B1B]/5 border-b border-stone-200 text-[#042B1B] uppercase font-bold tracking-wider">
+                  <th className="py-3.5 px-4">Order ID & Date</th>
+                  <th className="py-3.5 px-4">Customer Details</th>
+                  <th className="py-3.5 px-4">Ordered Products</th>
+                  <th className="py-3.5 px-4">Amount</th>
+                  <th className="py-3.5 px-4">Delivery Details</th>
+                  <th className="py-3.5 px-4">Payment</th>
+                  <th className="py-3.5 px-4">Order Status</th>
+                  <th className="py-3.5 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 font-medium">
+                {filteredOneTimeOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-stone-500">
+                      No one-time orders match your search filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOneTimeOrders.map((ord) => (
+                    <tr key={ord.id} className="hover:bg-stone-50 transition-colors">
+
+                      {/* Order ID & Date */}
+                      <td className="py-4 px-4">
+                        <span className="font-bold text-[#042B1B] font-mono block">{ord.id}</span>
+                        <span className="text-[10px] text-stone-500 block">{ord.orderDate}</span>
+                      </td>
+
+                      {/* Customer Details */}
+                      <td className="py-4 px-4">
+                        <span className="font-bold text-[#042B1B] block">{ord.customerName}</span>
+                        <span className="text-[10px] text-stone-500 block">{ord.customerEmail}</span>
+                        <span className="text-[10px] text-emerald-800 font-mono block">{ord.customerPhone}</span>
+                      </td>
+
+                      {/* Products */}
+                      <td className="py-4 px-4 max-w-xs">
+                        <div className="space-y-1">
+                          {(ord.items || []).map((item, idx) => (
+                            <span key={idx} className="inline-block bg-stone-100 text-stone-800 px-2 py-0.5 rounded text-[11px] font-medium mr-1 mb-1 border border-stone-200">
+                              {item.name} x{item.quantity} (₹{item.price * item.quantity})
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* Total Amount */}
+                      <td className="py-4 px-4 font-bold text-[#042B1B] text-sm">
+                        ₹{ord.totalAmount}
+                      </td>
+
+                      {/* Delivery Details */}
+                      <td className="py-4 px-4 max-w-xs text-stone-600">
+                        <span className="block font-bold text-[#042B1B] text-[11px]">{ord.deliverySlot}</span>
+                        <span className="block truncate text-[11px]">{ord.address}</span>
+                        {ord.instructions && (
+                          <span className="block text-[10px] text-amber-800 italic truncate">Note: {ord.instructions}</span>
+                        )}
+                      </td>
+
+                      {/* Payment Status & Toggle */}
+                      <td className="py-4 px-4">
+                        <div className="space-y-1">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block ${
+                            ord.paymentStatus === 'Paid'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : 'bg-amber-100 text-amber-900 border border-amber-300'
+                          }`}>
+                            {ord.paymentStatus || 'Paid'}
+                          </span>
+                          <span className="text-[10px] text-stone-500 block">{ord.paymentMethod}</span>
+                          <button
+                            onClick={() => updateOneTimePaymentStatus(ord.id, ord.paymentStatus === 'Paid' ? 'Pending' : 'Paid')}
+                            className="text-[10px] text-blue-700 hover:underline font-bold block"
+                          >
+                            Mark as {ord.paymentStatus === 'Paid' ? 'Pending' : 'Paid'}
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Order Status & Dropdown */}
+                      <td className="py-4 px-4">
+                        <select
+                          value={ord.status || 'Confirmed'}
+                          onChange={(e) => updateOneTimeOrderStatus(ord.id, e.target.value)}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold focus:outline-none border cursor-pointer ${
+                            ord.status === 'Delivered'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : ord.status === 'In Transit'
+                              ? 'bg-blue-50 text-blue-800 border-blue-300'
+                              : ord.status === 'Processing'
+                              ? 'bg-amber-50 text-amber-900 border-amber-300'
+                              : ord.status === 'Cancelled'
+                              ? 'bg-red-50 text-red-800 border-red-300'
+                              : 'bg-stone-50 text-stone-800 border-stone-300'
+                          }`}
+                        >
+                          <option value="Confirmed">Confirmed</option>
+                          <option value="Processing">Processing</option>
+                          <option value="In Transit">In Transit</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </td>
+
+                      {/* Action - Modal Details */}
+                      <td className="py-4 px-4 text-right">
+                        <button
+                          onClick={() => setSelectedOneTimeOrderDetails(ord)}
+                          className="p-2 bg-stone-100 text-[#042B1B] hover:bg-[#042B1B] hover:text-white rounded-xl transition-colors font-bold text-xs inline-flex items-center space-x-1"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-[#DFB33F]" />
+                          <span>View</span>
+                        </button>
+                      </td>
+
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      )}
+
+      {/* One-Time Order Detailed Modal */}
+      {selectedOneTimeOrderDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-[#DFB33F]/30 space-y-6 relative">
+            <button
+              onClick={() => setSelectedOneTimeOrderDetails(null)}
+              className="absolute top-4 right-4 text-stone-400 hover:text-stone-700 p-1 rounded-full hover:bg-stone-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 border-b border-stone-100 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-[#042B1B] text-[#DFB33F] flex items-center justify-center shrink-0 font-bold">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-serif-display font-bold text-lg text-[#042B1B]">Order Details: {selectedOneTimeOrderDetails.id}</h3>
+                <p className="text-[11px] text-stone-500">Placed on {selectedOneTimeOrderDetails.orderDate}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs">
+
+              {/* Customer Info */}
+              <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 space-y-2">
+                <h4 className="font-bold text-[#042B1B] uppercase tracking-wider text-[11px] flex items-center space-x-1">
+                  <Users className="w-3.5 h-3.5 text-[#DFB33F]" />
+                  <span>Customer Information</span>
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-stone-700">
+                  <div>
+                    <span className="text-stone-400 block text-[10px]">Name</span>
+                    <span className="font-bold">{selectedOneTimeOrderDetails.customerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block text-[10px]">Phone</span>
+                    <span className="font-mono font-bold">{selectedOneTimeOrderDetails.customerPhone}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-stone-400 block text-[10px]">Email</span>
+                    <span>{selectedOneTimeOrderDetails.customerEmail}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Info */}
+              <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 space-y-2">
+                <h4 className="font-bold text-[#042B1B] uppercase tracking-wider text-[11px] flex items-center space-x-1">
+                  <MapPin className="w-3.5 h-3.5 text-[#DFB33F]" />
+                  <span>Delivery Address & Slot</span>
+                </h4>
+                <p className="font-semibold text-stone-800">{selectedOneTimeOrderDetails.address}</p>
+                <div className="flex justify-between text-stone-600 pt-1 border-t border-stone-200 text-[11px]">
+                  <span>Slot: <strong>{selectedOneTimeOrderDetails.deliverySlot}</strong></span>
+                  {selectedOneTimeOrderDetails.instructions && (
+                    <span>Note: <em className="text-amber-900">{selectedOneTimeOrderDetails.instructions}</em></span>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Summary */}
+              <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-2">
+                <h4 className="font-bold text-[#042B1B] uppercase tracking-wider text-[11px] flex items-center space-x-1">
+                  <Package className="w-3.5 h-3.5 text-[#DFB33F]" />
+                  <span>Products Summary</span>
+                </h4>
+                <div className="divide-y divide-amber-200/50">
+                  {(selectedOneTimeOrderDetails.items || []).map((item, i) => (
+                    <div key={i} className="py-2 flex justify-between">
+                      <span className="font-medium text-stone-800">{item.name} x {item.quantity}</span>
+                      <span className="font-bold text-[#042B1B]">₹{item.price * item.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between font-bold text-sm text-[#042B1B] pt-2 border-t border-amber-300">
+                  <span>Total Payable</span>
+                  <span>₹{selectedOneTimeOrderDetails.totalAmount}</span>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="pt-2 flex items-center justify-end space-x-3">
+              <button
+                onClick={() => setSelectedOneTimeOrderDetails(null)}
+                className="px-5 py-2.5 bg-[#042B1B] text-white text-xs font-bold rounded-xl hover:bg-[#0B422B] shadow-md"
+              >
+                Close Receipt
+              </button>
+            </div>
           </div>
         </div>
       )}

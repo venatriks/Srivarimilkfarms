@@ -104,8 +104,8 @@ export const Footer = () => {
               Subscriptions
             </h4>
             <ul className="space-y-2.5 text-sm text-emerald-100/80">
-              <li><Link to="/dashboard" className="hover:text-[#DFB33F] transition-colors">Daily Milk Subscription</Link></li>
-              <li><Link to="/dashboard" className="hover:text-[#DFB33F] transition-colors">Pause/Resume Delivery</Link></li>
+              <li><Link to="/dashboard?tab=subscription" className="hover:text-[#DFB33F] transition-colors">Daily Milk Subscription</Link></li>
+              <li><Link to="/dashboard?tab=pause-resume" className="hover:text-[#DFB33F] transition-colors">Pause/Resume Delivery</Link></li>
               <li><Link to="/products" className="hover:text-[#DFB33F] transition-colors">Vedic Bilona Ghee Order</Link></li>
               <li><Link to="/login" className="hover:text-[#DFB33F] transition-colors">Customer & Admin Login</Link></li>
             </ul>

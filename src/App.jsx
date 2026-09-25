@@ -16,6 +16,7 @@ import { CustomerDashboard } from './pages/CustomerDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AboutUs } from './pages/AboutUs';
 import { ContactUs } from './pages/ContactUs';
+import { ResetPassword } from './pages/ResetPassword';
 
 // Scroll to top on route change helper
 const ScrollToTop = () => {
@@ -41,6 +42,7 @@ export function App() {
               <Route path="/products" element={<Products />} />
               <Route path="/quality" element={<Quality />} />
               <Route path="/login" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<CustomerDashboard />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/about" element={<AboutUs />} />

@@ -100,6 +100,83 @@ CREATE TABLE IF NOT EXISTS public.orders (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ====================================================================
+-- ONE-TIME ORDERS
+-- ====================================================================
+-- Secure guest checkout design:
+--
+--   - Guests can create orders through create_one_time_order().
+--   - Guests cannot directly SELECT orders.
+--   - Guests cannot directly UPDATE or DELETE orders.
+--   - Guests cannot directly manipulate payment/status/total fields.
+--   - Admins can view and manage all one-time orders.
+--
+-- ====================================================================
+
+CREATE TABLE IF NOT EXISTS public.one_time_orders (
+    id TEXT PRIMARY KEY DEFAULT (
+        'OTO-' || floor(random() * 90000 + 10000)::text
+    ),
+
+    customer_name TEXT NOT NULL,
+    customer_email TEXT NOT NULL,
+    customer_phone TEXT NOT NULL,
+
+    address TEXT NOT NULL,
+
+    delivery_slot TEXT NOT NULL
+        DEFAULT '5:30 AM - 6:30 AM',
+
+    instructions TEXT,
+
+    items JSONB NOT NULL
+        DEFAULT '[]'::jsonb,
+
+    total_amount NUMERIC(10, 2) NOT NULL
+        CHECK (total_amount >= 0),
+
+    payment_method TEXT NOT NULL
+        DEFAULT 'UPI Instant Pay',
+
+    payment_status TEXT NOT NULL
+        DEFAULT 'Pending'
+        CHECK (
+            payment_status IN (
+                'Pending',
+                'Paid',
+                'Failed',
+                'Refunded'
+            )
+        ),
+
+    status TEXT NOT NULL
+        DEFAULT 'Confirmed'
+        CHECK (
+            status IN (
+                'Confirmed',
+                'Processing',
+                'Delivered',
+                'Cancelled'
+            )
+        ),
+
+    order_date DATE NOT NULL
+        DEFAULT CURRENT_DATE,
+
+    created_at TIMESTAMPTZ NOT NULL
+        DEFAULT NOW()
+);
+
+-- Index for Admin Dashboard sorting/filtering
+CREATE INDEX IF NOT EXISTS idx_one_time_orders_created_at
+ON public.one_time_orders (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_one_time_orders_status
+ON public.one_time_orders (status);
+
+CREATE INDEX IF NOT EXISTS idx_one_time_orders_payment_status
+ON public.one_time_orders (payment_status);
+
 -- ORDER ITEMS
 CREATE TABLE IF NOT EXISTS public.order_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -136,14 +213,6 @@ CREATE TABLE IF NOT EXISTS public.wallet_transactions (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- AUDIT LOGS
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id TEXT PRIMARY KEY DEFAULT ('log-' || floor(random() * 100000 + 10000)::text),
-    action TEXT NOT NULL,
-    description TEXT NOT NULL,
-    timestamp TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- ====================================================================
 -- 4. GRANTS & ROW LEVEL SECURITY (RLS) POLICIES
 -- ====================================================================
@@ -152,12 +221,14 @@ GRANT ALL ON public.profiles TO anon, authenticated, service_role;
 GRANT ALL ON public.products TO anon, authenticated, service_role;
 GRANT ALL ON public.subscriptions TO anon, authenticated, service_role;
 GRANT ALL ON public.orders TO anon, authenticated, service_role;
+--GRANT ALL ON public.one_time_orders TO anon, authenticated, service_role;
 GRANT ALL ON public.deliveries TO anon, authenticated, service_role;
 GRANT ALL ON public.wallet_transactions TO anon, authenticated, service_role;
 GRANT ALL ON public.audit_logs TO anon, authenticated, service_role;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.one_time_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;

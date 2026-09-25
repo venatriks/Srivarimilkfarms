@@ -39,8 +39,14 @@ export const AppProvider = ({ children }) => {
 
   // Cart state
   const [cart, setCart] = useState(() => {
-    const saved = localStorage.getItem('srivari_cart');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('srivari_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Unable to restore cart from localStorage:', error);
+      localStorage.removeItem('srivari_cart');
+      return [];
+    }
   });
 
   const [cartOpen, setCartOpen] = useState(false);
@@ -89,6 +95,9 @@ export const AppProvider = ({ children }) => {
 
   // Employees state synced with DB
   const [employees, setEmployees] = useState(() => db.getEmployees());
+
+  // One-Time Orders state synced with DB
+  const [oneTimeOrders, setOneTimeOrders] = useState(() => db.getOneTimeOrders());
 
   // System audit logs
   const [dbLogs, setDbLogs] = useState(() => db.getLogs());
@@ -297,7 +306,44 @@ export const AppProvider = ({ children }) => {
         }
       };
 
-      // 6. Fetch & Sync Employees (Delivery Agents and Internal Staff)
+      // 6. Fetch & Sync One-Time Orders (admin only under RLS)
+      const fetchOneTimeOrders = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('one_time_orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (error) {
+            // Customers/guests are expected to be denied by RLS.
+            console.debug('One-time orders are not available for this session:', error.message);
+            return;
+          }
+
+          const mapped = (data || []).map(order => ({
+            id: order.id,
+            customerName: order.customer_name,
+            customerEmail: order.customer_email,
+            customerPhone: order.customer_phone,
+            address: order.address,
+            deliverySlot: order.delivery_slot,
+            instructions: order.instructions || '',
+            items: order.items || [],
+            totalAmount: Number(order.total_amount || 0),
+            paymentMethod: order.payment_method,
+            paymentStatus: order.payment_status,
+            status: order.status,
+            orderDate: order.order_date,
+            created_at: order.created_at
+          }));
+
+          setOneTimeOrders(mapped);
+        } catch (error) {
+          console.error('Error fetching one-time orders from Supabase:', error);
+        }
+      };
+
+      // 7. Fetch & Sync Employees (Delivery Agents and Internal Staff)
       const fetchEmployees = async () => {
         try {
           const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
@@ -326,6 +372,7 @@ export const AppProvider = ({ children }) => {
       fetchDeliveries();
       fetchAuditLogs();
       fetchContactQueries();
+      fetchOneTimeOrders();
       fetchEmployees();
 
       // Setup Realtime subscriptions
@@ -353,6 +400,10 @@ export const AppProvider = ({ children }) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, fetchEmployees)
         .subscribe();
 
+      const oneTimeOrdersChannel = supabase.channel('one-time-orders-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'one_time_orders' }, fetchOneTimeOrders)
+        .subscribe();
+
       return () => {
         supabase.removeChannel(productsChannel);
         supabase.removeChannel(profilesChannel);
@@ -360,8 +411,90 @@ export const AppProvider = ({ children }) => {
         supabase.removeChannel(auditLogsChannel);
         supabase.removeChannel(contactQueriesChannel);
         supabase.removeChannel(employeesChannel);
+        supabase.removeChannel(oneTimeOrdersChannel);
       };
     }
+  }, []);
+
+  // -------------------------------------------------------------
+  // SUPABASE AUTH SESSION RESTORE / AUTH STATE SYNC
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setSupabaseActive(false);
+      return undefined;
+    }
+
+    let mounted = true;
+
+    const loadAuthenticatedProfile = async (authUser) => {
+      if (!authUser || !mounted) {
+        if (mounted) setUser(null);
+        return;
+      }
+
+      try {
+        let { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Unable to load authenticated profile:', error);
+          return;
+        }
+
+        if (!profile) {
+          const result = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', authUser.email)
+            .maybeSingle();
+          profile = result.data;
+          error = result.error;
+        }
+
+        if (error || !profile || ['Deleted', 'Inactive'].includes(profile.status)) {
+          await supabase.auth.signOut();
+          if (mounted) setUser(null);
+          return;
+        }
+
+        if (mounted) {
+          setUser({
+            id: profile.id || authUser.id,
+            name: profile.name || authUser.user_metadata?.name || authUser.email,
+            email: profile.email || authUser.email,
+            phone: profile.phone || '',
+            address: profile.address || '',
+            role: profile.role || authUser.user_metadata?.role || 'customer',
+            walletBalance: Number(profile.wallet_balance || 1000),
+            status: profile.status || 'Active'
+          });
+        }
+      } catch (error) {
+        console.error('Auth session restore error:', error);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error('Unable to restore Supabase session:', error);
+        return;
+      }
+      loadAuthenticatedProfile(data.session?.user || null);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Defer the profile query so it does not run inside Supabase's auth lock.
+      setTimeout(() => loadAuthenticatedProfile(session?.user || null), 0);
+    });
+
+    return () => {
+      mounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
 
   // -------------------------------------------------------------
@@ -375,7 +508,11 @@ export const AppProvider = ({ children }) => {
     }
 
     if (user) {
-      idleTimerRef.current = setTimeout(() => {
+      idleTimerRef.current = setTimeout(async () => {
+        if (isSupabaseConfigured()) {
+          const { error } = await supabase.auth.signOut();
+          if (error) console.error('Supabase automatic logout error:', error);
+        }
         setUser(null);
         localStorage.removeItem('srivari_user');
         showToast("Logged out automatically due to 30 minutes of inactivity.", "info");
@@ -686,8 +823,8 @@ export const AppProvider = ({ children }) => {
 
   // Cart operations
   const addToCart = (product, quantity = 1, buyType = "one-time", frequency = "daily") => {
-    if (!user) {
-      showToast("Please log in to your account before adding items to cart or subscribing.", "info");
+    if (buyType === 'subscription' && !user) {
+      showToast("Please log in to your account to start a daily milk subscription.", "info");
       navigate('/login');
       return false;
     }
@@ -829,104 +966,84 @@ export const AppProvider = ({ children }) => {
       return false;
     }
 
-    const isMatchAdminEmail = email.toLowerCase() === 'admin@srivarimilkfarms.com';
-
     if (isSupabaseConfigured()) {
       try {
         const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim().toLowerCase(),
           password
         });
 
-        if (!authErr && authData?.user) {
-          let { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authData.user.id)
-            .maybeSingle();
-
-          if (!profile) {
-            const { data: profileByEmail } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('email', authData.user.email)
-              .maybeSingle();
-            profile = profileByEmail;
-          }
-
-          if (!profile || profile.status === 'Deleted' || profile.status === 'Inactive') {
-            await supabase.auth.signOut();
-            showToast("Account not found. Please contact support.", "error");
-            return false;
-          }
-
-          const userRole = profile.role || authData.user.user_metadata?.role || role;
-
-          if (role === 'admin' && userRole !== 'admin') {
-            showToast("Access Denied: This account does not have Admin privileges.", "error");
-            await supabase.auth.signOut();
-            return false;
-          }
-
-          const loggedInUser = {
-            id: profile.id || authData.user.id,
-            name: profile.name || authData.user.user_metadata?.name || "Mahantesha K (Farm Admin)",
-            email: profile.email || authData.user.email,
-            phone: profile.phone || "+91 7022776637",
-            address: profile.address || "Farm HQ, Rajeev Nagar",
-            role: userRole,
-            walletBalance: Number(profile.wallet_balance || (userRole === 'admin' ? 50000 : 1000))
-          };
-
-          setUser(loggedInUser);
-          logAction("USER_LOGIN", `Logged in user: ${loggedInUser.name} (${loggedInUser.role})`);
-          showToast(`Welcome back, ${loggedInUser.name}! Logged in as ${loggedInUser.role.toUpperCase()}`);
-          return true;
-        }
-
-        if (authErr) {
-          const existingAdmin = dbUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role === 'admin');
-          if (role === 'admin' && (existingAdmin || isMatchAdminEmail)) {
-            const adminUser = existingAdmin || {
-              id: "usr-admin-01",
-              name: "Mahantesha K (Farm Admin)",
-              email: email,
-              role: "admin",
-              phone: "+91 7022776637",
-              address: "Survey 197/A, Rajeev Nagar, D.Hirehal, Rayadurg Taluk, Anantapur Dist, AP - 515872",
-              walletBalance: 50000
-            };
-            setUser(adminUser);
-            logAction("ADMIN_LOGIN", `Admin logged in: ${adminUser.name}`);
-            showToast(`Welcome back, ${adminUser.name}! Logged in as FARM ADMIN`);
-            return true;
-          }
-
-          showToast(authErr.message || "Invalid credentials. Please check your email and password.", "error");
+        if (authErr || !authData?.user) {
+          showToast(authErr?.message || "Invalid credentials. Please check your email and password.", "error");
           return false;
         }
-      } catch (e) {
-        console.error("Supabase authentication error", e);
+
+        let { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          await supabase.auth.signOut();
+          showToast("Unable to load your account profile. Please try again.", "error");
+          return false;
+        }
+
+        if (!profile) {
+          const result = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', authData.user.email)
+            .maybeSingle();
+          profile = result.data;
+          profileError = result.error;
+        }
+
+        if (profileError || !profile || ['Deleted', 'Inactive'].includes(profile.status)) {
+          await supabase.auth.signOut();
+          showToast("Account not found or inactive. Please contact support.", "error");
+          return false;
+        }
+
+        const userRole = profile.role || authData.user.user_metadata?.role || 'customer';
+
+        if (role === 'admin' && userRole !== 'admin') {
+          await supabase.auth.signOut();
+          showToast("Access Denied: This account does not have Admin privileges.", "error");
+          return false;
+        }
+
+        const loggedInUser = {
+          id: profile.id || authData.user.id,
+          name: profile.name || authData.user.user_metadata?.name || authData.user.email,
+          email: profile.email || authData.user.email,
+          phone: profile.phone || '',
+          address: profile.address || '',
+          role: userRole,
+          walletBalance: Number(profile.wallet_balance || (userRole === 'admin' ? 50000 : 1000)),
+          status: profile.status || 'Active'
+        };
+
+        setUser(loggedInUser);
+        localStorage.setItem('srivari_user', JSON.stringify(loggedInUser));
+        await logAction("USER_LOGIN", `Logged in user: ${loggedInUser.name} (${loggedInUser.role})`);
+        showToast(`Welcome back, ${loggedInUser.name}! Logged in as ${loggedInUser.role.toUpperCase()}`);
+        return true;
+      } catch (error) {
+        console.error("Supabase authentication error:", error);
+        showToast("Unable to sign in right now. Please try again.", "error");
+        return false;
       }
     }
 
-    const existing = dbUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.status !== 'Deleted');
+    // Local database is used only when Supabase is intentionally not configured.
+    const existing = dbUsers.find(u =>
+      u.email?.toLowerCase() === email.trim().toLowerCase() &&
+      u.status !== 'Deleted'
+    );
+
     if (!existing) {
-      if (role === 'admin' && isMatchAdminEmail) {
-        const adminUser = {
-          id: "usr-admin-01",
-          name: "Mahantesha K (Farm Admin)",
-          email: email,
-          role: "admin",
-          phone: "+91 7022776637",
-          address: "Survey 197/A, Rajeev Nagar, D.Hirehal, Rayadurg Taluk, Anantapur Dist",
-          walletBalance: 50000
-        };
-        setUser(adminUser);
-        logAction("ADMIN_LOGIN", `Admin logged in: ${adminUser.name}`);
-        showToast(`Welcome back, ${adminUser.name}! Logged in as FARM ADMIN`);
-        return true;
-      }
       showToast("Account not found. Please contact support.", "error");
       return false;
     }
@@ -937,15 +1054,26 @@ export const AppProvider = ({ children }) => {
     }
 
     setUser(existing);
-    logAction("USER_LOGIN", `Logged in user: ${existing.name} (${existing.role})`);
+    localStorage.setItem('srivari_user', JSON.stringify(existing));
+    await logAction("USER_LOGIN", `Logged in user: ${existing.name} (${existing.role})`);
     showToast(`Welcome back, ${existing.name}! Logged in as ${existing.role.toUpperCase()}`);
     return true;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Supabase logout error:', error);
+        showToast('Unable to log out. Please try again.', 'error');
+        return false;
+      }
+    }
+
     setUser(null);
     localStorage.removeItem('srivari_user');
     showToast("Logged out successfully", "info");
+    return true;
   };
 
   // Subscription management
@@ -1007,6 +1135,63 @@ export const AppProvider = ({ children }) => {
     setCheckoutOpen(false);
     logAction("ORDER_PLACED", `Order ${newOrder.id} placed for ₹${cartTotal}`);
     showToast("🎉 Order Confirmed! Fresh Morning Delivery Scheduled.");
+  };
+
+  // One-time orders are created by CheckoutModal through the secure Supabase RPC.
+  // There is intentionally no direct client-side insert function here.
+
+  const updateOneTimeOrderStatus = async (orderId, newStatus) => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase
+          .from('one_time_orders')
+          .update({ status: newStatus })
+          .eq('id', orderId);
+
+        if (error) {
+          console.error('Supabase one-time order status update error:', error);
+          showToast(error.message || 'Unable to update order status.', 'error');
+          return false;
+        }
+      } catch (error) {
+        console.error('Supabase one-time order status update exception:', error);
+        showToast('Unable to update order status.', 'error');
+        return false;
+      }
+    }
+
+    db.updateOneTimeOrderStatus(orderId, newStatus);
+    setOneTimeOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    await logAction("ONE_TIME_ORDER_STATUS_CHANGED", `Updated order ${orderId} status to ${newStatus}`);
+    showToast(`Order status updated to ${newStatus}`);
+    return true;
+  };
+
+  const updateOneTimePaymentStatus = async (orderId, newPaymentStatus) => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase
+          .from('one_time_orders')
+          .update({ payment_status: newPaymentStatus })
+          .eq('id', orderId);
+
+        if (error) {
+          console.error('Supabase one-time order payment update error:', error);
+          showToast(error.message || 'Unable to update payment status.', 'error');
+          return false;
+        }
+      } catch (error) {
+        console.error('Supabase one-time order payment update exception:', error);
+        showToast('Unable to update payment status.', 'error');
+        return false;
+      }
+    }
+
+    db.updateOneTimePaymentStatus(orderId, newPaymentStatus);
+    setOneTimeOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: newPaymentStatus } : o));
+    await logAction("ONE_TIME_ORDER_PAYMENT_CHANGED", `Updated order ${orderId} payment status to ${newPaymentStatus}`);
+    showToast(`Payment status updated to ${newPaymentStatus}`);
+    return true;
   };
 
   // Contact Queries operations with Supabase sync
@@ -1232,7 +1417,10 @@ export const AppProvider = ({ children }) => {
         employees,
         addEmployee,
         updateEmployee,
-        deleteEmployee
+        deleteEmployee,
+        oneTimeOrders,
+        updateOneTimeOrderStatus,
+        updateOneTimePaymentStatus
       }}
     >
       {children}

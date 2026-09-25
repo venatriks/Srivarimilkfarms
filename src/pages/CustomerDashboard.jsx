@@ -1,15 +1,31 @@
-import React, { useState } from 'react';
-import { 
-  Milk, Calendar, Wallet, PauseCircle, PlayCircle, Plus, Minus, 
-  MapPin, Clock, RefreshCw, CheckCircle, Package, ArrowUpRight, ShieldCheck, Sparkles 
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  Milk, Calendar, Wallet, PauseCircle, PlayCircle, Plus, Minus,
+  MapPin, Clock, RefreshCw, CheckCircle, Package, ArrowUpRight, ShieldCheck, Sparkles
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const CustomerDashboard = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, subscriptions, toggleSubscriptionPause, updateSubscriptionQty, orders, showToast } = useApp();
+
+  const queryParams = new URLSearchParams(location.search);
+  const activeTabParam = queryParams.get('tab');
+
+  useEffect(() => {
+    if (!user) {
+      showToast("Please log in to view your subscriptions and delivery settings.", "info");
+      navigate('/login', { state: { from: location } });
+    }
+  }, [user, navigate, location]);
+
   const [wallet, setWallet] = useState(user?.walletBalance || 2450);
   const [rechargeAmount, setRechargeAmount] = useState(1000);
   const [deliveryInstructions, setDeliveryInstructions] = useState("Leave inside insulated doorstep bag outside Flat 402");
+
+  if (!user) return null;
 
   const handleRecharge = () => {
     setWallet(prev => prev + rechargeAmount);
@@ -23,7 +39,7 @@ export const CustomerDashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
-      
+
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-[#0F3E2E] to-[#18523f] text-white p-8 rounded-3xl border border-[#D4AF37]/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2">
@@ -56,10 +72,10 @@ export const CustomerDashboard = () => {
 
       {/* Main Grid: Subscriptions & Wallet */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         {/* Left 2 Cols: Active Subscriptions Manager */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           <div className="flex items-center justify-between">
             <h2 className="font-serif-display text-2xl font-bold text-[#0F3E2E] flex items-center space-x-2">
               <Milk className="w-6 h-6 text-[#D4AF37]" />
@@ -69,13 +85,13 @@ export const CustomerDashboard = () => {
           </div>
 
           {subscriptions.map((sub) => (
-            <div 
+            <div
               key={sub.id}
               className={`bg-white rounded-3xl p-6 border shadow-md transition-all space-y-6 ${
                 sub.status === 'Active' ? 'border-[#0F3E2E]/20' : 'border-amber-300 bg-amber-50/40'
               }`}
             >
-              
+
               {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
                 <div>
@@ -114,7 +130,7 @@ export const CustomerDashboard = () => {
 
               {/* Quantity & Details Control */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                
+
                 {/* Quantity modifier */}
                 <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-2">
                   <span className="text-stone-500 font-medium">Daily Quantity</span>
@@ -194,7 +210,7 @@ export const CustomerDashboard = () => {
 
         {/* Right Col: Wallet Recharge & Delivery Preferences */}
         <div className="space-y-6">
-          
+
           {/* Quick Wallet Top Up Card */}
           <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-4">
             <h3 className="font-serif-display text-lg font-bold text-[#0F3E2E] flex items-center space-x-2">
