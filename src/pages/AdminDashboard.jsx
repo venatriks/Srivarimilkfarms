@@ -11,68 +11,18 @@ export const AdminDashboard = () => {
   const navigate = useNavigate();
   const {
     user,
+    authLoading,
     products, updateProductStockOrPrice, addProduct, deleteProduct,
     distributionList, updateDistributionStatus,
     dbUsers, addDbUser, updateDbUser, deleteDbUser,
     orders,
+    subscriptions,
     contactQueries, updateContactQueryStatus, deleteContactQuery,
     employees, addEmployee, updateEmployee, deleteEmployee,
     oneTimeOrders, updateOneTimeOrderStatus, updateOneTimePaymentStatus,
     exportDatabaseBackup, importDatabaseBackup, resetDatabaseToDefaults,
     dbLogs, showToast, supabaseActive
   } = useApp();
-
-  // Authentication & Admin Authorization Check
-  if (!user) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
-        <div className="w-20 h-20 bg-amber-100 text-amber-900 rounded-3xl mx-auto flex items-center justify-center border border-amber-300 shadow-xl">
-          <Lock className="w-10 h-10 text-[#042B1B]" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="font-serif-display text-3xl font-bold text-[#042B1B]">
-            Administrator Login Required
-          </h2>
-          <p className="text-stone-600 max-w-md mx-auto text-sm font-medium">
-            You must be authenticated as an authorized administrator to access the Srivari Database Control Portal.
-          </p>
-        </div>
-        <button
-          onClick={() => navigate('/login')}
-          className="px-6 py-3.5 bg-[#042B1B] text-white font-bold text-xs uppercase tracking-wider rounded-2xl hover:bg-[#0B422B] transition-all shadow-md border border-[#DFB33F]/30 inline-flex items-center space-x-2"
-        >
-          <LogIn className="w-4 h-4 text-[#DFB33F]" />
-          <span>Log In with Admin Credentials</span>
-        </button>
-      </div>
-    );
-  }
-
-  if (user.role !== 'admin') {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
-        <div className="w-20 h-20 bg-red-100 text-red-800 rounded-3xl mx-auto flex items-center justify-center border border-red-300 shadow-xl">
-          <ShieldAlert className="w-10 h-10 text-red-600" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="font-serif-display text-3xl font-bold text-stone-900">
-            Access Denied: Insufficient Privileges
-          </h2>
-          <p className="text-stone-600 max-w-md mx-auto text-sm">
-            Your logged-in account (<strong>{user.email}</strong>) has customer status. Only authorized farm administrators can access database tools and management records.
-          </p>
-        </div>
-        <button
-          onClick={() => navigate('/')}
-          className="px-6 py-3.5 bg-[#042B1B] text-white font-bold text-xs uppercase tracking-wider rounded-2xl hover:bg-[#0B422B] transition-all shadow-md inline-flex items-center space-x-2"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#DFB33F]" />
-          <span>Return to Store Front</span>
-        </button>
-      </div>
-    );
-  }
-
 
   const [activeTab, setActiveTab] = useState('distribution'); // 'distribution' | 'users' | 'products' | 'queries' | 'employees' | 'onetime-orders' | 'database' | 'add'
   const [searchDist, setSearchDist] = useState('');
@@ -129,6 +79,54 @@ export const AdminDashboard = () => {
     calcium: '125 mg',
     calories: '68 kcal'
   });
+
+  // Authentication & Admin Authorization Check
+  if (authLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm font-semibold text-[#042B1B]">
+            Verifying administrator session...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
+        <div className="w-20 h-20 bg-amber-100 text-amber-900 rounded-3xl mx-auto flex items-center justify-center border border-amber-300 shadow-xl">
+          <Lock className="w-10 h-10 text-[#042B1B]" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="font-serif-display text-3xl font-bold text-[#042B1B]">Administrator Login Required</h2>
+          <p className="text-stone-600 max-w-md mx-auto text-sm font-medium">You must be authenticated as an authorized administrator to access the Srivari Database Control Portal.</p>
+        </div>
+        <button onClick={() => navigate('/login')} className="px-6 py-3.5 bg-[#042B1B] text-white font-bold text-xs uppercase tracking-wider rounded-2xl hover:bg-[#0B422B] transition-all shadow-md border border-[#DFB33F]/30 inline-flex items-center space-x-2">
+          <LogIn className="w-4 h-4 text-[#DFB33F]" /><span>Log In with Admin Credentials</span>
+        </button>
+      </div>
+    );
+  }
+
+  if (user.role !== 'admin') {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
+        <div className="w-20 h-20 bg-red-100 text-red-800 rounded-3xl mx-auto flex items-center justify-center border border-red-300 shadow-xl">
+          <ShieldAlert className="w-10 h-10 text-red-600" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="font-serif-display text-3xl font-bold text-stone-900">Access Denied: Insufficient Privileges</h2>
+          <p className="text-stone-600 max-w-md mx-auto text-sm">Your logged-in account (<strong>{user.email}</strong>) has customer status. Only authorized farm administrators can access database tools and management records.</p>
+        </div>
+        <button onClick={() => navigate('/')} className="px-6 py-3.5 bg-[#042B1B] text-white font-bold text-xs uppercase tracking-wider rounded-2xl hover:bg-[#0B422B] transition-all shadow-md inline-flex items-center space-x-2">
+          <ArrowLeft className="w-4 h-4 text-[#DFB33F]" /><span>Return to Store Front</span>
+        </button>
+      </div>
+    );
+  }
 
   // Image Upload Handler for "Add New Product"
   const handleAddNewProductImageUpload = (e) => {
@@ -325,11 +323,10 @@ export const AdminDashboard = () => {
       {/* Admin Header */}
       <div className="bg-[#042B1B] text-white p-8 rounded-3xl border border-[#DFB33F]/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2">
-          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border inline-flex items-center space-x-1.5 ${
-            supabaseActive
+          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border inline-flex items-center space-x-1.5 ${supabaseActive
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
               : 'bg-[#DFB33F]/20 text-[#DFB33F] border-[#DFB33F]'
-          }`}>
+            }`}>
             <Database className="w-3.5 h-3.5 text-[#DFB33F]" />
             <span>{supabaseActive ? 'Supabase Live Database Connected' : 'Local Database Control Center'}</span>
           </span>
@@ -421,23 +418,32 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('distribution')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'distribution'
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'distribution'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
           >
             <Truck className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">5 AM Roster</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('users')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'users'
+            onClick={() => setActiveTab('subscriptions')}
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'subscriptions'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
+          >
+            <Milk className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
+            <span className="truncate">Daily Subscriptions ({subscriptions.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'users'
+                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              }`}
           >
             <Users className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">Users ({dbUsers.length})</span>
@@ -445,11 +451,10 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('products')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'products'
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'products'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
           >
             <Package className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">Products ({products.length})</span>
@@ -457,11 +462,10 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('onetime-orders')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'onetime-orders'
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'onetime-orders'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
           >
             <ShoppingBag className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">One-Time Orders ({oneTimeOrders ? oneTimeOrders.length : 0})</span>
@@ -469,11 +473,10 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('queries')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'queries'
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'queries'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
           >
             <MessageSquare className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">Queries ({contactQueries ? contactQueries.length : 0})</span>
@@ -481,11 +484,10 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('employees')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'employees'
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'employees'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
           >
             <Briefcase className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">Employees ({employees ? employees.length : 0})</span>
@@ -493,11 +495,10 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('database')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'database'
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'database'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
           >
             <Database className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">DB Tools & Logs</span>
@@ -505,11 +506,10 @@ export const AdminDashboard = () => {
 
           <button
             onClick={() => setActiveTab('add')}
-            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
-              activeTab === 'add'
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'add'
                 ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
                 : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
-            }`}
+              }`}
           >
             <Plus className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">Add Product</span>
@@ -575,13 +575,12 @@ export const AdminDashboard = () => {
                     <td className="py-4 px-4 text-stone-500">{item.deliverySlot}</td>
                     <td className="py-4 px-4 font-bold text-amber-800">{item.bottleReturnCount} Glass Bottles</td>
                     <td className="py-4 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        item.status === 'Delivered'
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${item.status === 'Delivered'
                           ? 'bg-emerald-100 text-emerald-800'
                           : item.status === 'In Transit'
                             ? 'bg-amber-100 text-amber-900'
                             : 'bg-stone-100 text-stone-600'
-                      }`}>
+                        }`}>
                         {item.status}
                       </span>
                     </td>
@@ -601,6 +600,76 @@ export const AdminDashboard = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* DAILY MILK SUBSCRIPTIONS */}
+      {activeTab === 'subscriptions' && (
+        <div className="bg-white rounded-3xl border border-[#042B1B]/10 shadow-md p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-serif-display text-xl font-bold text-[#042B1B]">Daily Milk Subscriptions</h3>
+              <p className="text-xs text-stone-500 mt-1">Live subscriptions loaded from Supabase • customer and product details are joined from their related tables.</p>
+            </div>
+            <div className="px-4 py-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-bold">
+              {subscriptions.length} Total Subscription{subscriptions.length === 1 ? '' : 's'}
+            </div>
+          </div>
+
+          {subscriptions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-stone-300 p-10 text-center">
+              <Milk className="w-10 h-10 mx-auto text-stone-300 mb-3" />
+              <p className="font-semibold text-stone-700">No milk subscriptions found.</p>
+              <p className="text-xs text-stone-500 mt-1">New customer subscriptions will appear here automatically.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-stone-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#042B1B] text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-bold">Customer</th>
+                    <th className="px-4 py-3 text-left font-bold">Product</th>
+                    <th className="px-4 py-3 text-left font-bold">Qty</th>
+                    <th className="px-4 py-3 text-left font-bold">Frequency</th>
+                    <th className="px-4 py-3 text-left font-bold">Delivery</th>
+                    <th className="px-4 py-3 text-left font-bold">Start Date</th>
+                    <th className="px-4 py-3 text-left font-bold">₹/Day</th>
+                    <th className="px-4 py-3 text-left font-bold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {subscriptions
+                    .filter(subscription => {
+                      const frequency = String(subscription.frequency || '').toLowerCase();
+                      return frequency === 'daily' || frequency === 'daily morning';
+                    })
+                    .map(subscription => (
+                      <tr key={subscription.id} className="hover:bg-stone-50">
+                        <td className="px-4 py-4 align-top">
+                          <div className="font-bold text-[#042B1B]">{subscription.customerName || 'Customer'}</div>
+                          <div className="text-xs text-stone-500">{subscription.customerEmail || '—'}</div>
+                          {subscription.customerPhone && <div className="text-xs text-stone-500">{subscription.customerPhone}</div>}
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="font-semibold text-stone-800">{subscription.productName || 'Milk Product'}</div>
+                          <div className="text-xs text-stone-500">{subscription.productId}</div>
+                        </td>
+                        <td className="px-4 py-4 align-top font-semibold">{subscription.quantity} {subscription.unit || 'Liter'}</td>
+                        <td className="px-4 py-4 align-top">{subscription.frequencyLabel || (String(subscription.frequency).toLowerCase() === 'daily' ? 'Daily Morning' : subscription.frequency || '—')}</td>
+                        <td className="px-4 py-4 align-top">{subscription.deliverySlot || '—'}</td>
+                        <td className="px-4 py-4 align-top">{subscription.startDate || '—'}</td>
+                        <td className="px-4 py-4 align-top font-bold text-[#042B1B]">₹{Number(subscription.pricePerDay || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-4 align-top">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold ${subscription.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {subscription.status || 'Active'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -734,9 +803,8 @@ export const AdminDashboard = () => {
                           <span className="text-[10px] text-stone-400">{u.phone}</span>
                         </td>
                         <td className="py-3 px-3">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            u.role === 'admin' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-800'
-                          }`}>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${u.role === 'admin' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-800'
+                            }`}>
                             {u.role}
                           </span>
                         </td>
@@ -907,9 +975,8 @@ export const AdminDashboard = () => {
                 <div className="flex items-center justify-between text-xs pt-2">
                   <button
                     onClick={() => updateProductStockOrPrice(prod.id, { inStock: !prod.inStock })}
-                    className={`px-3 py-1 rounded-full font-bold text-[10px] uppercase ${
-                      prod.inStock ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-                    }`}
+                    className={`px-3 py-1 rounded-full font-bold text-[10px] uppercase ${prod.inStock ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                      }`}
                   >
                     {prod.inStock ? 'In Stock' : 'Out of Stock'}
                   </button>
@@ -994,11 +1061,10 @@ export const AdminDashboard = () => {
                         <select
                           value={q.status || 'Pending'}
                           onChange={(e) => updateContactQueryStatus(q.id, e.target.value)}
-                          className={`px-3 py-1.5 border rounded-xl text-xs font-bold focus:outline-none shadow-xs ${
-                            q.status === 'In Progress'
+                          className={`px-3 py-1.5 border rounded-xl text-xs font-bold focus:outline-none shadow-xs ${q.status === 'In Progress'
                               ? 'bg-amber-50 text-amber-900 border-amber-300'
                               : 'bg-stone-100 text-stone-800 border-stone-300'
-                          }`}
+                            }`}
                         >
                           <option value="Pending">Pending</option>
                           <option value="In Progress">In Progress</option>
@@ -1105,22 +1171,20 @@ export const AdminDashboard = () => {
               <div className="flex space-x-2 w-full sm:w-auto overflow-x-auto pb-1">
                 <button
                   onClick={() => setEmpCategoryFilter('All')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                    empCategoryFilter === 'All'
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${empCategoryFilter === 'All'
                       ? 'bg-[#042B1B] text-white shadow-sm'
                       : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                  }`}
+                    }`}
                 >
                   All Staff ({employees ? employees.length : 0})
                 </button>
 
                 <button
                   onClick={() => setEmpCategoryFilter('Delivery Agent')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                    empCategoryFilter === 'Delivery Agent'
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${empCategoryFilter === 'Delivery Agent'
                       ? 'bg-blue-900 text-white shadow-sm'
                       : 'bg-blue-50 text-blue-800 hover:bg-blue-100'
-                  }`}
+                    }`}
                 >
                   <Truck className="w-3.5 h-3.5" />
                   <span>Delivery Agents ({deliveryAgentsCount})</span>
@@ -1128,11 +1192,10 @@ export const AdminDashboard = () => {
 
                 <button
                   onClick={() => setEmpCategoryFilter('Internal Staff')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                    empCategoryFilter === 'Internal Staff'
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${empCategoryFilter === 'Internal Staff'
                       ? 'bg-amber-800 text-white shadow-sm'
                       : 'bg-amber-50 text-amber-900 hover:bg-amber-100'
-                  }`}
+                    }`}
                 >
                   <Briefcase className="w-3.5 h-3.5" />
                   <span>Internal Staff ({internalStaffCount})</span>
@@ -1177,11 +1240,10 @@ export const AdminDashboard = () => {
                       <tr key={emp.id} className="hover:bg-stone-50 transition-colors">
                         <td className="py-4 px-4 font-bold text-[#042B1B]">
                           <div className="flex items-center space-x-3">
-                            <div className={`w-9 h-9 rounded-xl font-bold flex items-center justify-center shrink-0 ${
-                              emp.category === 'Delivery Agent'
+                            <div className={`w-9 h-9 rounded-xl font-bold flex items-center justify-center shrink-0 ${emp.category === 'Delivery Agent'
                                 ? 'bg-blue-100 text-blue-900 border border-blue-200'
                                 : 'bg-amber-100 text-amber-900 border border-amber-200'
-                            }`}>
+                              }`}>
                               {emp.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
@@ -1193,11 +1255,10 @@ export const AdminDashboard = () => {
                         </td>
 
                         <td className="py-4 px-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide inline-flex items-center space-x-1 border mb-1 ${
-                            emp.category === 'Delivery Agent'
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide inline-flex items-center space-x-1 border mb-1 ${emp.category === 'Delivery Agent'
                               ? 'bg-blue-50 text-blue-800 border-blue-200'
                               : 'bg-amber-50 text-amber-900 border-amber-200'
-                          }`}>
+                            }`}>
                             {emp.category === 'Delivery Agent' ? <Truck className="w-3 h-3" /> : <Briefcase className="w-3 h-3" />}
                             <span>{emp.category}</span>
                           </span>
@@ -1230,11 +1291,10 @@ export const AdminDashboard = () => {
                           <select
                             value={emp.status || 'Active'}
                             onChange={(e) => updateEmployee(emp.id, { status: e.target.value })}
-                            className={`px-3 py-1.5 border rounded-xl text-xs font-bold focus:outline-none shadow-xs ${
-                              emp.status === 'Active'
+                            className={`px-3 py-1.5 border rounded-xl text-xs font-bold focus:outline-none shadow-xs ${emp.status === 'Active'
                                 ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
                                 : 'bg-red-50 text-red-800 border-red-300'
-                            }`}
+                              }`}
                           >
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
@@ -1596,7 +1656,7 @@ export const AdminDashboard = () => {
                   </div>
                   <p className="font-bold text-stone-800">Date: {dispatchDate}</p>
                   <p className="text-stone-600">Route: {runnerName}</p>
-                  <p className="text-stone-500 font-mono text-[10px]">Manifest #: SRI-MAN-{dispatchDate.replace(/-/g,'')}-04</p>
+                  <p className="text-stone-500 font-mono text-[10px]">Manifest #: SRI-MAN-{dispatchDate.replace(/-/g, '')}-04</p>
                 </div>
               </div>
 
@@ -2094,11 +2154,10 @@ export const AdminDashboard = () => {
                       {/* Payment Status & Toggle */}
                       <td className="py-4 px-4">
                         <div className="space-y-1">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block ${
-                            ord.paymentStatus === 'Paid'
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block ${ord.paymentStatus === 'Paid'
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                               : 'bg-amber-100 text-amber-900 border border-amber-300'
-                          }`}>
+                            }`}>
                             {ord.paymentStatus || 'Paid'}
                           </span>
                           <span className="text-[10px] text-stone-500 block">{ord.paymentMethod}</span>
@@ -2116,17 +2175,16 @@ export const AdminDashboard = () => {
                         <select
                           value={ord.status || 'Confirmed'}
                           onChange={(e) => updateOneTimeOrderStatus(ord.id, e.target.value)}
-                          className={`px-2.5 py-1 rounded-xl text-xs font-bold focus:outline-none border cursor-pointer ${
-                            ord.status === 'Delivered'
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold focus:outline-none border cursor-pointer ${ord.status === 'Delivered'
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                               : ord.status === 'In Transit'
-                              ? 'bg-blue-50 text-blue-800 border-blue-300'
-                              : ord.status === 'Processing'
-                              ? 'bg-amber-50 text-amber-900 border-amber-300'
-                              : ord.status === 'Cancelled'
-                              ? 'bg-red-50 text-red-800 border-red-300'
-                              : 'bg-stone-50 text-stone-800 border-stone-300'
-                          }`}
+                                ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                : ord.status === 'Processing'
+                                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                  : ord.status === 'Cancelled'
+                                    ? 'bg-red-50 text-red-800 border-red-300'
+                                    : 'bg-stone-50 text-stone-800 border-stone-300'
+                            }`}
                         >
                           <option value="Confirmed">Confirmed</option>
                           <option value="Processing">Processing</option>

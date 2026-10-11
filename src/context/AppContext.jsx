@@ -1,1384 +1,4234 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback
+} from 'react';
+
 import { useNavigate } from 'react-router-dom';
-import { db } from '../db/database';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const AppContext = createContext();
+const AppContext = createContext(null);
 
-// Idle Timeout Duration: 30 minutes (in milliseconds)
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
-// Helper UUID generator
+const DEFAULT_DELIVERY_SLOT = '5:30 AM - 6:30 AM';
+
 const generateUuid = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 };
 
+const formatDate = value => {
+  if (!value) return '';
+
+  try {
+    return String(value).split('T')[0];
+  } catch {
+    return '';
+  }
+};
+
+const mapProduct = p => ({
+  id: p.id,
+  name: p.name || '',
+  category: p.category || '',
+  price: Number(p.price || 0),
+  unit: p.unit || '',
+  rating: Number(p.rating || 5),
+  reviewsCount: Number(p.reviews_count || 0),
+
+  image:
+    p.image &&
+      (
+        p.image.startsWith('http') ||
+        p.image.startsWith('/') ||
+        p.image.startsWith('data:')
+      )
+      ? p.image
+      : `${import.meta.env.BASE_URL}${p.image || ''}`,
+
+  badge: p.badge || '',
+  description: p.description || '',
+  inStock: p.in_stock !== false,
+  stockCount: Number(p.stock_count || 0),
+  subscriptionAvailable: p.subscription_available !== false,
+  labParameters: p.lab_parameters || {},
+  nutritionalInfo: p.nutritional_info || {}
+});
+
+const mapSubscription = ({
+  subscription,
+  product,
+  customer,
+  currentUser
+}) => {
+  const isCurrentUser =
+    subscription.user_id === currentUser?.id;
+
+  return {
+    id: subscription.id,
+
+    userId: subscription.user_id,
+
+    customerName:
+      customer?.name ||
+      (isCurrentUser ? currentUser?.name : '') ||
+      'Customer',
+
+    customerEmail:
+      customer?.email ||
+      (isCurrentUser ? currentUser?.email : '') ||
+      '',
+
+    customerPhone:
+      customer?.phone ||
+      (isCurrentUser ? currentUser?.phone : '') ||
+      '',
+
+    customerAddress:
+      customer?.address ||
+      (isCurrentUser ? currentUser?.address : '') ||
+      '',
+
+    productId: subscription.product_id,
+
+    productName:
+      product?.name ||
+      'Milk Product',
+
+    unit:
+      product?.unit ||
+      'Liter',
+
+    quantity:
+      Number(subscription.quantity || 0),
+
+    /*
+     * Database stores "daily".
+     * UI gets a friendly display value as well.
+     */
+    frequency:
+      subscription.frequency || 'daily',
+
+    frequencyLabel:
+      subscription.frequency === 'daily'
+        ? 'Daily Morning'
+        : subscription.frequency || 'Daily Morning',
+
+    deliverySlot:
+      subscription.delivery_slot ||
+      DEFAULT_DELIVERY_SLOT,
+
+    status:
+      subscription.status ||
+      'Active',
+
+    startDate:
+      subscription.start_date,
+
+    pricePerDay:
+      Number(subscription.price_per_day || 0),
+
+    bottlesExchanged:
+      Number(subscription.bottles_exchanged || 0),
+
+    createdAt:
+      subscription.created_at
+  };
+};
+
 export const AppProvider = ({ children }) => {
   const navigate = useNavigate();
 
-  // Products state synced with DB
-  const [products, setProducts] = useState(() => db.getProducts());
+  /*
+   * ------------------------------------------------------------
+   * APPLICATION STATE
+   * ------------------------------------------------------------
+   */
 
-  // Supabase Connection Status
-  const [supabaseActive, setSupabaseActive] = useState(false);
+  const [products, setProducts] = useState([]);
 
-  // User list state synced with DB
-  const [dbUsers, setDbUsers] = useState(() =>
-    isSupabaseConfigured() ? [] : db.getUsers()
-  );
+  const [supabaseActive, setSupabaseActive] =
+    useState(false);
 
-  // User session state - Defaults to NULL (logged out) on site visit
+  const [dbUsers, setDbUsers] = useState([]);
+
   const [user, setUser] = useState(null);
 
-  // Cart state
+  const [authLoading, setAuthLoading] =
+    useState(true);
+
+  const [authReady, setAuthReady] =
+    useState(false);
+
+  const idleTimerRef = useRef(null);
+
   const [cart, setCart] = useState(() => {
     try {
-      const saved = localStorage.getItem('srivari_cart');
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('Unable to restore cart from localStorage:', error);
-      localStorage.removeItem('srivari_cart');
+      const saved =
+        localStorage.getItem('srivari_cart');
+
+      return saved
+        ? JSON.parse(saved)
+        : [];
+    } catch {
       return [];
     }
   });
 
-  const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [cartOpen, setCartOpen] =
+    useState(false);
 
-  // Lab Modal product state
-  const [selectedLabProduct, setSelectedLabProduct] = useState(null);
+  const [checkoutOpen, setCheckoutOpen] =
+    useState(false);
 
-  // Active user subscriptions
-  const [subscriptions, setSubscriptions] = useState([
-    {
-      id: "sub-9901",
-      productName: "Pure A2 Desi Cow Milk",
-      quantity: 2,
-      unit: "Liter",
-      frequency: "Daily Morning",
-      deliverySlot: "5:30 AM - 6:30 AM",
-      status: "Active",
-      startDate: "2026-01-15",
-      pricePerDay: 150,
-      bottlesExchanged: 42
-    }
-  ]);
+  const [selectedLabProduct, setSelectedLabProduct] =
+    useState(null);
 
-  // Orders state
-  const [orders, setOrders] = useState([
-    {
-      id: "ORD-88219",
-      date: "2026-09-16",
-      items: [
-        { name: "Pure A2 Desi Cow Milk (2L)", price: 150 },
-        { name: "Traditional Vedic Bilona Ghee (1L)", price: 1400 }
-      ],
-      totalAmount: 1550,
-      status: "Delivered",
-      deliverySlot: "5:30 AM - 6:30 AM",
-      paymentMethod: "Srivari Wallet"
-    }
-  ]);
+  /*
+   * IMPORTANT:
+   * This is the SAME subscriptions state that the
+   * existing Admin Dashboard should use for its
+   * Daily Milk Subscriptions / 5 AM Roster.
+   */
+  const [subscriptions, setSubscriptions] =
+    useState([]);
 
-  // Admin Distribution List synced with DB
-  const [distributionList, setDistributionList] = useState(() => db.getDeliveries());
+  const [orders, setOrders] =
+    useState([]);
 
-  // Contact Queries state synced with DB
-  const [contactQueries, setContactQueries] = useState(() => db.getContactQueries());
+  const [distributionList, setDistributionList] =
+    useState([]);
 
-  // Employees state synced with DB
-  const [employees, setEmployees] = useState(() => db.getEmployees());
+  const [contactQueries, setContactQueries] =
+    useState([]);
 
-  // One-Time Orders state synced with DB
-  const [oneTimeOrders, setOneTimeOrders] = useState(() => db.getOneTimeOrders());
+  const [employees, setEmployees] =
+    useState([]);
 
-  // System audit logs
-  const [dbLogs, setDbLogs] = useState(() => db.getLogs());
+  const [oneTimeOrders, setOneTimeOrders] =
+    useState([]);
 
-  // Toast state
-  const [toast, setToast] = useState(null);
+  const [dbLogs, setDbLogs] =
+    useState([]);
 
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(null);
-    }, 3500);
-  };
+  const [toast, setToast] =
+    useState(null);
 
-  // Log action helper (saves to local DB + Supabase audit_logs)
-  const logAction = async (action, description) => {
-    const timestamp = new Date().toISOString();
+  /*
+   * ------------------------------------------------------------
+   * TOAST
+   * ------------------------------------------------------------
+   */
 
-    // Always keep a local copy for the current browser session/database
-    const localLog = {
-      id: `log-${Date.now()}`,
-      action,
-      description,
-      timestamp: new Date(timestamp).toLocaleString()
-    };
+  const showToast = useCallback(
+    (message, type = 'success') => {
+      setToast({
+        message,
+        type
+      });
 
-    setDbLogs(prev => [localLog, ...prev].slice(0, 100));
+      window.setTimeout(() => {
+        setToast(null);
+      }, 3500);
+    },
+    []
+  );
 
-    db.addLog({
-      action,
-      description,
-      timestamp
-    });
+  /*
+   * ------------------------------------------------------------
+   * AUTHENTICATED USER
+   * ------------------------------------------------------------
+   */
 
-    // Supabase audit logging
-    if (!isSupabaseConfigured()) {
-      return;
-    }
-
-    try {
-      // Get the currently authenticated user.
-      const {
-        data: { user: authUser }
-      } = await supabase.auth.getUser();
-
-      /*
-       * Do not create anonymous audit records.
-       *
-       * This is important because contact forms and other public
-       * actions can run without an authenticated user.
-       */
+  const loadAuthenticatedProfile = useCallback(
+    async authUser => {
       if (!authUser) {
-        return;
+        setUser(null);
+        setAuthLoading(false);
+        return null;
       }
 
-      const { error } = await supabase
-        .from('audit_logs')
-        .insert({
-          actor_id: authUser.id,
-          action,
-          description,
-          timestamp
-        });
+      try {
+        let profile = null;
 
-      if (error) {
-        console.error('Supabase audit log error:', error);
-      }
-    } catch (error) {
-      console.error('Audit logging exception:', error);
-    }
-  };
-
-  // Sync data with Supabase database & enable real-time listeners if configured
-  useEffect(() => {
-    if (isSupabaseConfigured()) {
-      setSupabaseActive(true);
-
-      // 1. Fetch & Sync Products
-      const fetchProducts = async () => {
-        try {
-          const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-          if (!error && data && data.length > 0) {
-            const mapped = data.map(p => ({
-              id: p.id,
-              name: p.name,
-              category: p.category,
-              price: Number(p.price),
-              unit: p.unit,
-              rating: Number(p.rating || 5.0),
-              reviewsCount: p.reviews_count || 0,
-              image: (p.image.startsWith('http') || p.image.startsWith('/') || p.image.startsWith('data:')) ? p.image : `${import.meta.env.BASE_URL}${p.image}`,
-              badge: p.badge,
-              description: p.description,
-              inStock: p.in_stock,
-              stockCount: p.stock_count,
-              subscriptionAvailable: p.subscription_available,
-              labParameters: p.lab_parameters,
-              nutritionalInfo: p.nutritional_info
-            }));
-            setProducts(mapped);
-          }
-        } catch (e) {
-          console.error("Error fetching products from Supabase", e);
-        }
-      };
-
-      // 2. Fetch & Sync Profiles / User Accounts
-      const fetchProfiles = async () => {
-        if (!isSupabaseConfigured()) {
-          return;
-        }
-
-        try {
-          const {
-            data,
-            error
-          } = await supabase
+        /*
+         * First lookup by Auth UUID.
+         */
+        const byId =
+          await supabase
             .from('profiles')
             .select('*')
-            .order('created_at', { ascending: false });
+            .eq('id', authUser.id)
+            .maybeSingle();
 
-          if (error) {
-            console.error('Error fetching profiles from Supabase:', error);
-            return;
+        if (byId.error) {
+          console.error(
+            'Unable to load profile by ID:',
+            byId.error
+          );
+
+          setUser(null);
+          setAuthLoading(false);
+
+          return null;
+        }
+
+        profile = byId.data;
+
+        /*
+         * Fallback lookup by email.
+         */
+        if (!profile && authUser.email) {
+          const byEmail =
+            await supabase
+              .from('profiles')
+              .select('*')
+              .eq(
+                'email',
+                authUser.email.toLowerCase()
+              )
+              .maybeSingle();
+
+          if (byEmail.error) {
+            console.error(
+              'Unable to load profile by email:',
+              byEmail.error
+            );
+
+            setUser(null);
+            setAuthLoading(false);
+
+            return null;
           }
 
-          const mapped = (data || []).map(u => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            phone: u.phone || '',
-            role: u.role || 'customer',
-            address: u.address || '',
-            walletBalance: Number(u.wallet_balance || 1000),
-            subscriptionActive: u.subscription_active ?? true,
-            status: u.status || 'Active',
-            createdAt: u.created_at
-              ? u.created_at.split('T')[0]
-              : new Date().toISOString().split('T')[0]
-          }));
-
-          // Supabase is the source of truth.
-          // Replace the entire user list, including when Supabase returns zero rows.
-          setDbUsers(mapped);
-        } catch (e) {
-          console.error('Error fetching profiles from Supabase:', e);
+          profile = byEmail.data;
         }
-      };
-      // 3. Fetch & Sync 5 AM Deliveries
-      const fetchDeliveries = async () => {
-        try {
-          const { data, error } = await supabase.from('deliveries').select('*').order('created_at', { ascending: false });
-          if (!error && data && data.length > 0) {
-            const mapped = data.map(d => ({
-              id: d.id,
-              customerId: d.customer_id,
-              customerName: d.customer_name,
-              address: d.address,
-              phone: d.phone,
-              quantity: d.quantity,
-              product: d.product,
-              deliverySlot: d.delivery_slot || '5:30 AM - 6:30 AM',
-              bottleReturnCount: d.bottle_return_count || 0,
-              status: d.status || 'Pending',
-              date: d.delivery_date || d.created_at
-            }));
-            setDistributionList(mapped);
-          }
-        } catch (e) {
-          console.error("Error fetching deliveries from Supabase", e);
+
+        if (
+          !profile ||
+          ['Deleted', 'Inactive'].includes(
+            profile.status
+          )
+        ) {
+          await supabase.auth.signOut();
+
+          setUser(null);
+          setAuthLoading(false);
+
+          return null;
         }
-      };
 
-      // 4. Fetch & Sync Audit Logs
-      const fetchAuditLogs = async () => {
-        try {
-          const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(50);
-          if (!error && data && data.length > 0) {
-            const mapped = data.map(l => ({
-              id: l.id,
-              action: l.action,
-              description: l.description,
-              timestamp: new Date(l.timestamp).toLocaleString()
-            }));
-            setDbLogs(mapped);
-          }
-        } catch (e) {
-          console.error("Error fetching audit logs from Supabase", e);
-        }
-      };
+        const userRole =
+          profile.role ||
+          authUser.user_metadata?.role ||
+          'customer';
 
-      // 5. Fetch & Sync Contact Queries (active queries where status != 'Completed')
-      const fetchContactQueries = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('contact_queries')
-            .select('*')
-            .neq('status', 'Completed')
-            .order('created_at', { ascending: false });
+        const loggedInUser = {
+          id:
+            profile.id ||
+            authUser.id,
 
-          if (!error && data) {
-            setContactQueries(data);
-          }
-        } catch (e) {
-          console.error("Error fetching contact queries from Supabase", e);
-        }
-      };
+          name:
+            profile.name ||
+            authUser.user_metadata?.name ||
+            authUser.email,
 
-      // 6. Fetch & Sync One-Time Orders (admin only under RLS)
-      const fetchOneTimeOrders = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('one_time_orders')
-            .select('*')
-            .order('created_at', { ascending: false });
+          email:
+            profile.email ||
+            authUser.email,
 
-          if (error) {
-            // Customers/guests are expected to be denied by RLS.
-            console.debug('One-time orders are not available for this session:', error.message);
-            return;
-          }
+          phone:
+            profile.phone ||
+            authUser.user_metadata?.phone ||
+            '',
 
-          const mapped = (data || []).map(order => ({
-            id: order.id,
-            customerName: order.customer_name,
-            customerEmail: order.customer_email,
-            customerPhone: order.customer_phone,
-            address: order.address,
-            deliverySlot: order.delivery_slot,
-            instructions: order.instructions || '',
-            items: order.items || [],
-            totalAmount: Number(order.total_amount || 0),
-            paymentMethod: order.payment_method,
-            paymentStatus: order.payment_status,
-            status: order.status,
-            orderDate: order.order_date,
-            created_at: order.created_at
-          }));
+          address:
+            profile.address ||
+            authUser.user_metadata?.address ||
+            '',
 
-          setOneTimeOrders(mapped);
-        } catch (error) {
-          console.error('Error fetching one-time orders from Supabase:', error);
-        }
-      };
+          role: userRole,
 
-      // 7. Fetch & Sync Employees (Delivery Agents and Internal Staff)
-      const fetchEmployees = async () => {
-        try {
-          const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
-          if (!error && data && data.length > 0) {
-            const mapped = data.map(e => ({
-              id: e.id,
-              name: e.name,
-              phone: e.phone || '',
-              email: e.email || '',
-              role: e.role || '',
-              category: e.category || 'Delivery Agent',
-              address: e.address || '',
-              joiningDate: e.joining_date || (e.created_at ? e.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
-              salary: Number(e.salary || 20000),
-              status: e.status || 'Active'
-            }));
-            setEmployees(mapped);
-          }
-        } catch (e) {
-          console.error("Error fetching employees from Supabase", e);
-        }
-      };
+          walletBalance:
+            Number(
+              profile.wallet_balance ??
+              (userRole === 'admin'
+                ? 50000
+                : 1000)
+            ),
 
-      fetchProducts();
-      fetchProfiles();
-      fetchDeliveries();
-      fetchAuditLogs();
-      fetchContactQueries();
-      fetchOneTimeOrders();
-      fetchEmployees();
+          status:
+            profile.status ||
+            'Active'
+        };
 
-      // Setup Realtime subscriptions
-      const productsChannel = supabase.channel('products-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchProducts)
-        .subscribe();
+        setUser(loggedInUser);
+        setAuthLoading(false);
 
-      const profilesChannel = supabase.channel('profiles-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchProfiles)
-        .subscribe();
+        return loggedInUser;
+      } catch (error) {
+        console.error(
+          'Auth profile restoration error:',
+          error
+        );
 
-      const deliveriesChannel = supabase.channel('deliveries-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, fetchDeliveries)
-        .subscribe();
+        setUser(null);
+        setAuthLoading(false);
 
-      const auditLogsChannel = supabase.channel('audit-logs-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, fetchAuditLogs)
-        .subscribe();
+        return null;
+      }
+    },
+    []
+  );
 
-      const contactQueriesChannel = supabase.channel('contact-queries-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_queries' }, fetchContactQueries)
-        .subscribe();
+  /*
+   * ------------------------------------------------------------
+   * SUPABASE SESSION RESTORE
+   * ------------------------------------------------------------
+   */
 
-      const employeesChannel = supabase.channel('employees-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, fetchEmployees)
-        .subscribe();
-
-      const oneTimeOrdersChannel = supabase.channel('one-time-orders-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'one_time_orders' }, fetchOneTimeOrders)
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(productsChannel);
-        supabase.removeChannel(profilesChannel);
-        supabase.removeChannel(deliveriesChannel);
-        supabase.removeChannel(auditLogsChannel);
-        supabase.removeChannel(contactQueriesChannel);
-        supabase.removeChannel(employeesChannel);
-        supabase.removeChannel(oneTimeOrdersChannel);
-      };
-    }
-  }, []);
-
-  // -------------------------------------------------------------
-  // SUPABASE AUTH SESSION RESTORE / AUTH STATE SYNC
-  // -------------------------------------------------------------
   useEffect(() => {
     if (!isSupabaseConfigured()) {
       setSupabaseActive(false);
+      setUser(null);
+      setAuthLoading(false);
+      setAuthReady(true);
+
+      return undefined;
+    }
+
+    setSupabaseActive(true);
+
+    let mounted = true;
+
+    const restoreSession = async () => {
+      try {
+        const {
+          data,
+          error
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error(
+            'Unable to restore Supabase session:',
+            error
+          );
+
+          if (mounted) {
+            setUser(null);
+            setAuthLoading(false);
+            setAuthReady(true);
+          }
+
+          return;
+        }
+
+        if (!mounted) return;
+
+        await loadAuthenticatedProfile(
+          data?.session?.user || null
+        );
+
+        if (mounted) {
+          setAuthReady(true);
+        }
+      } catch (error) {
+        console.error(
+          'Supabase session restoration failed:',
+          error
+        );
+
+        if (mounted) {
+          setUser(null);
+          setAuthLoading(false);
+          setAuthReady(true);
+        }
+      }
+    };
+
+    restoreSession();
+
+    const {
+      data: authListener
+    } =
+      supabase.auth.onAuthStateChange(
+        (_event, session) => {
+          window.setTimeout(async () => {
+            if (!mounted) return;
+
+            await loadAuthenticatedProfile(
+              session?.user || null
+            );
+
+            if (mounted) {
+              setAuthReady(true);
+            }
+          }, 0);
+        }
+      );
+
+    return () => {
+      mounted = false;
+
+      authListener?.subscription?.unsubscribe();
+    };
+  }, [loadAuthenticatedProfile]);
+
+  /*
+   * ------------------------------------------------------------
+   * AUDIT LOG
+   * ------------------------------------------------------------
+   */
+
+  const logAction = useCallback(
+    async (action, description) => {
+      if (!isSupabaseConfigured()) {
+        return false;
+      }
+
+      try {
+        const {
+          data: authData
+        } =
+          await supabase.auth.getUser();
+
+        const authUser =
+          authData?.user;
+
+        if (!authUser) {
+          return false;
+        }
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('audit_logs')
+            .insert({
+              actor_id: authUser.id,
+              action,
+              description,
+              timestamp:
+                new Date().toISOString()
+            })
+            .select('*')
+            .single();
+
+        if (error) {
+          console.error(
+            'Supabase audit log error:',
+            error
+          );
+
+          return false;
+        }
+
+        if (data) {
+          setDbLogs(prev => [
+            {
+              id: data.id,
+              action: data.action,
+              description:
+                data.description,
+              timestamp:
+                data.timestamp
+                  ? new Date(
+                    data.timestamp
+                  ).toLocaleString()
+                  : ''
+            },
+            ...prev
+          ].slice(0, 50));
+        }
+
+        return true;
+      } catch (error) {
+        console.error(
+          'Audit logging exception:',
+          error
+        );
+
+        return false;
+      }
+    },
+    []
+  );
+
+  /*
+   * ------------------------------------------------------------
+   * PRODUCTS
+   * ------------------------------------------------------------
+   */
+
+  const fetchProducts =
+    useCallback(async () => {
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('products')
+          .select('*')
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          );
+
+      if (error) {
+        console.error(
+          'Error fetching products:',
+          error
+        );
+
+        return;
+      }
+
+      setProducts(
+        (data || []).map(mapProduct)
+      );
+    }, []);
+
+  /*
+   * ------------------------------------------------------------
+   * PROFILES
+   * ------------------------------------------------------------
+   */
+
+  const fetchProfiles =
+    useCallback(async () => {
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('profiles')
+          .select('*')
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          );
+
+      if (error) {
+        console.error(
+          'Error fetching profiles:',
+          error
+        );
+
+        return;
+      }
+
+      setDbUsers(
+        (data || []).map(profile => ({
+          id: profile.id,
+          name: profile.name || '',
+          email: profile.email || '',
+          phone: profile.phone || '',
+          role:
+            profile.role ||
+            'customer',
+          address:
+            profile.address || '',
+          walletBalance:
+            Number(
+              profile.wallet_balance ??
+              1000
+            ),
+          subscriptionActive:
+            profile.subscription_active ??
+            true,
+          status:
+            profile.status ||
+            'Active',
+          createdAt:
+            formatDate(
+              profile.created_at
+            )
+        }))
+      );
+    }, []);
+
+  /*
+   * ------------------------------------------------------------
+   * SUBSCRIPTIONS
+   *
+   * THIS IS THE IMPORTANT PART FOR:
+   *
+   * Admin Daily Milk Subscriptions
+   * Admin 5 AM Roster
+   *
+   * Data comes directly from:
+   * public.subscriptions
+   * ------------------------------------------------------------
+   */
+
+  const fetchSubscriptions =
+    useCallback(async () => {
+      try {
+        if (!user?.id) {
+          setSubscriptions([]);
+          return;
+        }
+
+        /*
+         * Admin:
+         * fetch ALL subscriptions.
+         *
+         * Customer:
+         * fetch ONLY their own subscriptions.
+         */
+        let query =
+          supabase
+            .from('subscriptions')
+            .select('*')
+            .order(
+              'created_at',
+              {
+                ascending: false
+              }
+            );
+
+        if (user.role !== 'admin') {
+          query =
+            query.eq(
+              'user_id',
+              user.id
+            );
+        }
+
+        const {
+          data:
+          subscriptionRows,
+          error:
+          subscriptionError
+        } = await query;
+
+        if (subscriptionError) {
+          console.error(
+            'Error fetching subscriptions from Supabase:',
+            subscriptionError
+          );
+
+          return;
+        }
+
+        const rows =
+          subscriptionRows || [];
+
+        if (!rows.length) {
+          setSubscriptions([]);
+          return;
+        }
+
+        /*
+         * ------------------------------------------------------
+         * LOAD PRODUCT INFORMATION
+         * ------------------------------------------------------
+         */
+
+        const productIds =
+          [
+            ...new Set(
+              rows
+                .map(
+                  row =>
+                    row.product_id
+                )
+                .filter(Boolean)
+            )
+          ];
+
+        let productsById = {};
+
+        if (productIds.length) {
+          const {
+            data:
+            productRows,
+            error:
+            productError
+          } =
+            await supabase
+              .from('products')
+              .select(
+                'id,name,unit,price'
+              )
+              .in(
+                'id',
+                productIds
+              );
+
+          if (productError) {
+            console.error(
+              'Error fetching subscription products:',
+              productError
+            );
+          } else {
+            productsById =
+              Object.fromEntries(
+                (productRows || []).map(
+                  product => [
+                    String(
+                      product.id
+                    ),
+                    product
+                  ]
+                )
+              );
+          }
+        }
+
+        /*
+         * ------------------------------------------------------
+         * LOAD CUSTOMER PROFILES FOR ADMIN
+         * ------------------------------------------------------
+         */
+
+        let profilesById = {};
+
+        if (
+          user.role === 'admin'
+        ) {
+          const userIds =
+            [
+              ...new Set(
+                rows
+                  .map(
+                    row =>
+                      row.user_id
+                  )
+                  .filter(Boolean)
+              )
+            ];
+
+          if (userIds.length) {
+            const {
+              data:
+              profileRows,
+              error:
+              profileError
+            } =
+              await supabase
+                .from('profiles')
+                .select(
+                  'id,name,email,phone,address'
+                )
+                .in(
+                  'id',
+                  userIds
+                );
+
+            if (profileError) {
+              console.error(
+                'Error fetching subscription customer profiles:',
+                profileError
+              );
+            } else {
+              profilesById =
+                Object.fromEntries(
+                  (
+                    profileRows ||
+                    []
+                  ).map(
+                    profile => [
+                      String(
+                        profile.id
+                      ),
+                      profile
+                    ]
+                  )
+                );
+            }
+          }
+        }
+
+        /*
+         * ------------------------------------------------------
+         * MAP DATABASE RECORDS
+         * ------------------------------------------------------
+         */
+
+        const mapped =
+          rows.map(subscription => {
+            const product =
+              productsById[
+              String(
+                subscription.product_id
+              )
+              ];
+
+            const customer =
+              profilesById[
+              String(
+                subscription.user_id
+              )
+              ];
+
+            return mapSubscription({
+              subscription,
+              product,
+              customer,
+              currentUser: user
+            });
+          });
+
+        setSubscriptions(mapped);
+      } catch (error) {
+        console.error(
+          'Subscription fetch exception:',
+          error
+        );
+      }
+    }, [
+      user?.id,
+      user?.role,
+      user?.name,
+      user?.email,
+      user?.phone,
+      user?.address
+    ]);
+
+  /*
+   * ------------------------------------------------------------
+   * 5 AM ROSTER DATA
+   *
+   * No new dashboard tab.
+   *
+   * This is derived directly from subscriptions.
+   * ------------------------------------------------------------
+   */
+
+  const fiveAmRoster =
+    subscriptions.filter(
+      subscription =>
+        subscription.status ===
+        'Active' &&
+        (
+          subscription.deliverySlot ===
+          DEFAULT_DELIVERY_SLOT ||
+          subscription.deliverySlot
+            ?.toLowerCase()
+            .includes('5:30')
+        )
+    );
+
+  /*
+   * ------------------------------------------------------------
+   * DELIVERIES
+   * ------------------------------------------------------------
+   */
+
+  const fetchDeliveries =
+    useCallback(async () => {
+      if (!user?.id) return;
+
+      let query =
+        supabase
+          .from('deliveries')
+          .select('*')
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          );
+
+      if (user.role !== 'admin') {
+        query =
+          query.eq(
+            'customer_id',
+            user.id
+          );
+      }
+
+      const {
+        data,
+        error
+      } = await query;
+
+      if (error) {
+        console.error(
+          'Error fetching deliveries:',
+          error
+        );
+
+        return;
+      }
+
+      setDistributionList(
+        (data || []).map(
+          delivery => ({
+            id: delivery.id,
+            customerId:
+              delivery.customer_id,
+            customerName:
+              delivery.customer_name,
+            address:
+              delivery.address,
+            phone:
+              delivery.phone,
+            quantity:
+              delivery.quantity,
+            product:
+              delivery.product,
+            deliverySlot:
+              delivery.delivery_slot ||
+              DEFAULT_DELIVERY_SLOT,
+            bottleReturnCount:
+              Number(
+                delivery.bottle_return_count ||
+                0
+              ),
+            status:
+              delivery.status ||
+              'Pending',
+            date:
+              delivery.delivery_date ||
+              delivery.created_at
+          })
+        )
+      );
+    }, [
+      user?.id,
+      user?.role
+    ]);
+
+  /*
+   * ------------------------------------------------------------
+   * ORDERS
+   * ------------------------------------------------------------
+   */
+
+  const fetchOrders =
+    useCallback(async () => {
+      if (!user?.id) return;
+
+      let query =
+        supabase
+          .from('orders')
+          .select(
+            '*, order_items(*)'
+          )
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          );
+
+      if (user.role !== 'admin') {
+        query =
+          query.eq(
+            'user_id',
+            user.id
+          );
+      }
+
+      const {
+        data,
+        error
+      } = await query;
+
+      if (error) {
+        console.error(
+          'Error fetching orders:',
+          error
+        );
+
+        return;
+      }
+
+      setOrders(
+        (data || []).map(
+          order => ({
+            id: order.id,
+            userId:
+              order.user_id,
+            customerName:
+              'Customer',
+            customerEmail:
+              '',
+            totalAmount:
+              Number(
+                order.total_amount ||
+                0
+              ),
+            status:
+              order.status ||
+              'Pending',
+            deliverySlot:
+              order.delivery_slot ||
+              '',
+            paymentMethod:
+              order.payment_method ||
+              '',
+            deliveryAddress:
+              order.delivery_address ||
+              '',
+            phone:
+              order.phone ||
+              '',
+            instructions:
+              order.instructions ||
+              '',
+            createdAt:
+              order.created_at,
+            date:
+              formatDate(
+                order.created_at
+              ),
+
+            items:
+              (
+                order.order_items ||
+                []
+              ).map(item => ({
+                id: item.id,
+                orderId:
+                  item.order_id,
+                productId:
+                  item.product_id,
+                productName:
+                  item.product_name,
+                quantity:
+                  Number(
+                    item.quantity ||
+                    0
+                  ),
+                unitPrice:
+                  Number(
+                    item.unit_price ||
+                    0
+                  ),
+                buyType:
+                  item.buy_type ||
+                  '',
+                frequency:
+                  item.frequency ||
+                  ''
+              }))
+          })
+        )
+      );
+    }, [
+      user?.id,
+      user?.role
+    ]);
+
+  /*
+   * ------------------------------------------------------------
+   * ONE-TIME ORDERS
+   * ------------------------------------------------------------
+   */
+
+  const fetchOneTimeOrders =
+    useCallback(async () => {
+      if (
+        !user?.id ||
+        user.role !== 'admin'
+      ) {
+        return;
+      }
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('one_time_orders')
+          .select('*')
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          );
+
+      if (error) {
+        console.error(
+          'Error fetching one-time orders:',
+          error
+        );
+
+        return;
+      }
+
+      setOneTimeOrders(
+        (data || []).map(
+          order => ({
+            id: order.id,
+            customerName:
+              order.customer_name,
+            customerEmail:
+              order.customer_email,
+            customerPhone:
+              order.customer_phone,
+            address:
+              order.address,
+            deliverySlot:
+              order.delivery_slot,
+            instructions:
+              order.instructions ||
+              '',
+            items:
+              order.items || [],
+            totalAmount:
+              Number(
+                order.total_amount ||
+                0
+              ),
+            paymentMethod:
+              order.payment_method,
+            paymentStatus:
+              order.payment_status,
+            status:
+              order.status,
+            orderDate:
+              order.order_date,
+            created_at:
+              order.created_at
+          })
+        )
+      );
+    }, [
+      user?.id,
+      user?.role
+    ]);
+
+  /*
+   * ------------------------------------------------------------
+   * EMPLOYEES
+   * ------------------------------------------------------------
+   */
+
+  const fetchEmployees =
+    useCallback(async () => {
+      if (
+        !user?.id ||
+        user.role !== 'admin'
+      ) {
+        return;
+      }
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('employees')
+          .select('*')
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          );
+
+      if (error) {
+        console.error(
+          'Error fetching employees:',
+          error
+        );
+
+        return;
+      }
+
+      setEmployees(
+        (data || []).map(
+          employee => ({
+            id: employee.id,
+            name:
+              employee.name,
+            phone:
+              employee.phone ||
+              '',
+            email:
+              employee.email ||
+              '',
+            role:
+              employee.role ||
+              '',
+            category:
+              employee.category ||
+              'Delivery Agent',
+            address:
+              employee.address ||
+              '',
+            joiningDate:
+              employee.joining_date ||
+              formatDate(
+                employee.created_at
+              ),
+            salary:
+              Number(
+                employee.salary ||
+                0
+              ),
+            status:
+              employee.status ||
+              'Active'
+          })
+        )
+      );
+    }, [
+      user?.id,
+      user?.role
+    ]);
+
+  /*
+   * ------------------------------------------------------------
+   * AUDIT LOGS
+   * ------------------------------------------------------------
+   */
+
+  const fetchAuditLogs =
+    useCallback(async () => {
+      if (
+        !user?.id ||
+        user.role !== 'admin'
+      ) {
+        return;
+      }
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('audit_logs')
+          .select('*')
+          .order(
+            'timestamp',
+            {
+              ascending: false
+            }
+          )
+          .limit(50);
+
+      if (error) {
+        console.error(
+          'Error fetching audit logs:',
+          error
+        );
+
+        return;
+      }
+
+      setDbLogs(
+        (data || []).map(
+          log => ({
+            id: log.id,
+            action:
+              log.action,
+            description:
+              log.description,
+            timestamp:
+              log.timestamp
+                ? new Date(
+                  log.timestamp
+                ).toLocaleString()
+                : ''
+          })
+        )
+      );
+    }, [
+      user?.id,
+      user?.role
+    ]);
+
+  /*
+   * ------------------------------------------------------------
+   * CONTACT QUERIES
+   * ------------------------------------------------------------
+   */
+
+  const fetchContactQueries =
+    useCallback(async () => {
+      if (
+        !user?.id ||
+        user.role !== 'admin'
+      ) {
+        return;
+      }
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('contact_queries')
+          .select('*')
+          .neq(
+            'status',
+            'Completed'
+          )
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          );
+
+      if (error) {
+        console.error(
+          'Error fetching contact queries:',
+          error
+        );
+
+        return;
+      }
+
+      setContactQueries(
+        data || []
+      );
+    }, [
+      user?.id,
+      user?.role
+    ]);
+
+  /*
+   * ------------------------------------------------------------
+   * SUPABASE DATA LOAD + REALTIME
+   * ------------------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (
+      !isSupabaseConfigured() ||
+      !authReady ||
+      authLoading ||
+      !user?.id
+    ) {
       return undefined;
     }
 
     let mounted = true;
 
-    const loadAuthenticatedProfile = async (authUser) => {
-      if (!authUser || !mounted) {
-        if (mounted) setUser(null);
-        return;
-      }
+    const channels = [];
 
-      try {
-        let { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .maybeSingle();
+    const loadData = async () => {
+      await fetchProducts();
 
-        if (error) {
-          console.error('Unable to load authenticated profile:', error);
-          return;
-        }
+      if (!mounted) return;
 
-        if (!profile) {
-          const result = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', authUser.email)
-            .maybeSingle();
-          profile = result.data;
-          error = result.error;
-        }
-
-        if (error || !profile || ['Deleted', 'Inactive'].includes(profile.status)) {
-          await supabase.auth.signOut();
-          if (mounted) setUser(null);
-          return;
-        }
-
-        if (mounted) {
-          setUser({
-            id: profile.id || authUser.id,
-            name: profile.name || authUser.user_metadata?.name || authUser.email,
-            email: profile.email || authUser.email,
-            phone: profile.phone || '',
-            address: profile.address || '',
-            role: profile.role || authUser.user_metadata?.role || 'customer',
-            walletBalance: Number(profile.wallet_balance || 1000),
-            status: profile.status || 'Active'
-          });
-        }
-      } catch (error) {
-        console.error('Auth session restore error:', error);
+      if (user.role === 'admin') {
+        await Promise.allSettled([
+          fetchProfiles(),
+          fetchSubscriptions(),
+          fetchOrders(),
+          fetchDeliveries(),
+          fetchAuditLogs(),
+          fetchContactQueries(),
+          fetchOneTimeOrders(),
+          fetchEmployees()
+        ]);
+      } else {
+        await Promise.allSettled([
+          fetchSubscriptions(),
+          fetchOrders(),
+          fetchDeliveries()
+        ]);
       }
     };
 
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (error) {
-        console.error('Unable to restore Supabase session:', error);
-        return;
-      }
-      loadAuthenticatedProfile(data.session?.user || null);
-    });
+    loadData();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Defer the profile query so it does not run inside Supabase's auth lock.
-      setTimeout(() => loadAuthenticatedProfile(session?.user || null), 0);
-    });
+    /*
+     * ----------------------------------------------------------
+     * PRODUCTS REALTIME
+     * ----------------------------------------------------------
+     */
+
+    channels.push(
+      supabase
+        .channel(
+          'srivari-products-realtime'
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'products'
+          },
+          () => {
+            fetchProducts();
+            fetchSubscriptions();
+          }
+        )
+        .subscribe()
+    );
+
+    /*
+     * ----------------------------------------------------------
+     * SUBSCRIPTIONS REALTIME
+     *
+     * This is what keeps Admin 5 AM Roster updated.
+     * ----------------------------------------------------------
+     */
+
+    channels.push(
+      supabase
+        .channel(
+          'srivari-subscriptions-realtime'
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'subscriptions'
+          },
+          () => {
+            fetchSubscriptions();
+          }
+        )
+        .subscribe()
+    );
+
+    /*
+     * ----------------------------------------------------------
+     * CUSTOMER REALTIME
+     * ----------------------------------------------------------
+     */
+
+    if (user.role !== 'admin') {
+      channels.push(
+        supabase
+          .channel(
+            'srivari-customer-orders'
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'orders',
+              filter:
+                `user_id=eq.${user.id}`
+            },
+            () => {
+              fetchOrders();
+            }
+          )
+          .subscribe()
+      );
+
+      channels.push(
+        supabase
+          .channel(
+            'srivari-customer-deliveries'
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'deliveries',
+              filter:
+                `customer_id=eq.${user.id}`
+            },
+            () => {
+              fetchDeliveries();
+            }
+          )
+          .subscribe()
+      );
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * ADMIN REALTIME
+     * ----------------------------------------------------------
+     */
+
+    if (user.role === 'admin') {
+      const adminTables = [
+        [
+          'profiles',
+          fetchProfiles
+        ],
+        [
+          'orders',
+          fetchOrders
+        ],
+        [
+          'deliveries',
+          fetchDeliveries
+        ],
+        [
+          'audit_logs',
+          fetchAuditLogs
+        ],
+        [
+          'contact_queries',
+          fetchContactQueries
+        ],
+        [
+          'one_time_orders',
+          fetchOneTimeOrders
+        ],
+        [
+          'employees',
+          fetchEmployees
+        ]
+      ];
+
+      adminTables.forEach(
+        ([table, callback]) => {
+          channels.push(
+            supabase
+              .channel(
+                `srivari-admin-${table}`
+              )
+              .on(
+                'postgres_changes',
+                {
+                  event: '*',
+                  schema: 'public',
+                  table
+                },
+                callback
+              )
+              .subscribe()
+          );
+        }
+      );
+    }
 
     return () => {
       mounted = false;
-      authListener?.subscription?.unsubscribe();
-    };
-  }, []);
 
-  // -------------------------------------------------------------
-  // 30-MINUTE IDLE TIMEOUT LOGOUT LOGIC
-  // -------------------------------------------------------------
-  const idleTimerRef = useRef(null);
-
-  const resetIdleTimer = () => {
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-    }
-
-    if (user) {
-      idleTimerRef.current = setTimeout(async () => {
-        if (isSupabaseConfigured()) {
-          const { error } = await supabase.auth.signOut();
-          if (error) console.error('Supabase automatic logout error:', error);
+      channels.forEach(
+        channel => {
+          try {
+            supabase.removeChannel(
+              channel
+            );
+          } catch (error) {
+            console.error(
+              'Realtime channel cleanup error:',
+              error
+            );
+          }
         }
-        setUser(null);
-        localStorage.removeItem('srivari_user');
-        showToast("Logged out automatically due to 30 minutes of inactivity.", "info");
-      }, IDLE_TIMEOUT_MS);
-    }
-  };
+      );
+    };
+  }, [
+    authReady,
+    authLoading,
+    user?.id,
+    user?.role,
+
+    fetchProducts,
+    fetchProfiles,
+    fetchSubscriptions,
+    fetchOrders,
+    fetchDeliveries,
+    fetchAuditLogs,
+    fetchContactQueries,
+    fetchOneTimeOrders,
+    fetchEmployees
+  ]);
+
+  /*
+   * ------------------------------------------------------------
+   * IDLE LOGOUT
+   * ------------------------------------------------------------
+   */
+
+  const resetIdleTimer =
+    useCallback(() => {
+      if (idleTimerRef.current) {
+        clearTimeout(
+          idleTimerRef.current
+        );
+
+        idleTimerRef.current = null;
+      }
+
+      if (!user) return;
+
+      idleTimerRef.current =
+        setTimeout(
+          async () => {
+            try {
+              if (
+                isSupabaseConfigured()
+              ) {
+                await supabase.auth.signOut();
+              }
+            } catch (error) {
+              console.error(
+                'Automatic logout error:',
+                error
+              );
+            } finally {
+              setUser(null);
+
+              localStorage.removeItem(
+                'srivari_user'
+              );
+
+              showToast(
+                'Logged out automatically due to 30 minutes of inactivity.',
+                'info'
+              );
+            }
+          },
+          IDLE_TIMEOUT_MS
+        );
+    }, [
+      user,
+      showToast
+    ]);
 
   useEffect(() => {
     if (!user) {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      return;
+      if (
+        idleTimerRef.current
+      ) {
+        clearTimeout(
+          idleTimerRef.current
+        );
+
+        idleTimerRef.current =
+          null;
+      }
+
+      return undefined;
     }
 
-    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'wheel'];
+    const activityEvents = [
+      'mousemove',
+      'keydown',
+      'click',
+      'scroll',
+      'touchstart',
+      'wheel'
+    ];
 
-    const handleUserActivity = () => {
-      resetIdleTimer();
+    let throttleTimer = null;
+
+    const handleActivity = () => {
+      if (throttleTimer) return;
+
+      throttleTimer =
+        setTimeout(() => {
+          throttleTimer = null;
+          resetIdleTimer();
+        }, 500);
     };
 
-    activityEvents.forEach(event => {
-      window.addEventListener(event, handleUserActivity);
-    });
+    activityEvents.forEach(
+      event => {
+        window.addEventListener(
+          event,
+          handleActivity,
+          {
+            passive: true
+          }
+        );
+      }
+    );
 
     resetIdleTimer();
 
     return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      activityEvents.forEach(event => {
-        window.removeEventListener(event, handleUserActivity);
-      });
+      if (
+        idleTimerRef.current
+      ) {
+        clearTimeout(
+          idleTimerRef.current
+        );
+
+        idleTimerRef.current =
+          null;
+      }
+
+      if (throttleTimer) {
+        clearTimeout(
+          throttleTimer
+        );
+
+        throttleTimer = null;
+      }
+
+      activityEvents.forEach(
+        event => {
+          window.removeEventListener(
+            event,
+            handleActivity
+          );
+        }
+      );
     };
-  }, [user]);
+  }, [
+    user,
+    resetIdleTimer
+  ]);
 
-  // Product Database Operations with Supabase Sync
-  const updateProductStockOrPrice = async (productId, updates) => {
-    db.updateProduct(productId, updates);
+  /*
+   * ------------------------------------------------------------
+   * CART
+   * ------------------------------------------------------------
+   */
 
-    if (isSupabaseConfigured()) {
-      try {
-        const dbUpdates = {};
-        if (updates.price !== undefined) dbUpdates.price = Number(updates.price);
-        if (updates.stockCount !== undefined) dbUpdates.stock_count = Number(updates.stockCount);
-        if (updates.inStock !== undefined) dbUpdates.in_stock = updates.inStock;
-        if (updates.nutritionalInfo !== undefined) dbUpdates.nutritional_info = updates.nutritionalInfo;
-        if (updates.name !== undefined) dbUpdates.name = updates.name;
-        if (updates.category !== undefined) dbUpdates.category = updates.category;
-
-        await supabase.from('products').update(dbUpdates).eq('id', productId);
-      } catch (e) {
-        console.error("Supabase product update exception:", e);
-      }
-    }
-
-    setProducts(prev => prev.map(p => p.id === productId ? { ...p, ...updates } : p));
-    logAction("PRODUCT_UPDATED", `Updated product ID: ${productId}`);
-    showToast("Product database updated successfully!");
-  };
-
-  const addProduct = async (newProdData) => {
-    const prodId = newProdData.id || `p-${Date.now()}`;
-    const formattedProd = {
-      id: prodId,
-      name: newProdData.name,
-      category: newProdData.category,
-      price: Number(newProdData.price),
-      unit: newProdData.unit,
-      rating: 5.0,
-      reviews_count: 1,
-      image: newProdData.image,
-      badge: 'New Launch',
-      description: newProdData.description,
-      in_stock: true,
-      stock_count: 100,
-      subscription_available: true,
-      nutritional_info: newProdData.nutritionalInfo || {}
-    };
-
-    if (isSupabaseConfigured()) {
-      try {
-        const { error } = await supabase.from('products').insert(formattedProd);
-        if (error) {
-          console.error("Error inserting product into Supabase:", error);
-        }
-      } catch (e) {
-        console.error("Supabase insert product exception:", e);
-      }
-    }
-
-    db.addProduct({ id: prodId, ...newProdData });
-    setProducts(prev => [
-      {
-        id: prodId,
-        name: newProdData.name,
-        category: newProdData.category,
-        price: Number(newProdData.price),
-        unit: newProdData.unit,
-        rating: 5.0,
-        reviewsCount: 1,
-        image: newProdData.image,
-        badge: 'New Launch',
-        description: newProdData.description,
-        inStock: true,
-        stockCount: 100,
-        subscriptionAvailable: true,
-        nutritionalInfo: newProdData.nutritionalInfo || {}
-      },
-      ...prev.filter(p => p.id !== prodId)
-    ]);
-
-    logAction("PRODUCT_ADDED", `Added product: ${newProdData.name}`);
-    showToast(`Added ${newProdData.name} to Database!`);
-  };
-
-  const deleteProduct = async (productId) => {
-    db.deleteProduct(productId);
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('products').delete().eq('id', productId);
-      } catch (e) {
-        console.error("Supabase delete product exception:", e);
-      }
-    }
-
-    setProducts(prev => prev.filter(p => p.id !== productId));
-    logAction("PRODUCT_DELETED", `Deleted product ID: ${productId}`);
-    showToast("Product deleted from Database", "info");
-  };
-
-  // User DB operations with Supabase Sync
-  const addDbUser = async (userData) => {
-    const targetId = userData.id || generateUuid();
-
-    if (isSupabaseConfigured()) {
-      try {
-        const { error } = await supabase.from('profiles').upsert({
-          id: targetId,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone || '',
-          role: userData.role || 'customer',
-          address: userData.address || '',
-          wallet_balance: Number(userData.walletBalance || 1000),
-          status: 'Active'
-        }, { onConflict: 'email' });
-
-        if (error) {
-          console.error("Error upserting user to Supabase profiles:", error);
-        }
-      } catch (e) {
-        console.error("Supabase user creation exception:", e);
-      }
-    }
-
-    const created = db.addUser({ id: targetId, ...userData });
-    setDbUsers(prev => [
-      {
-        id: targetId,
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone || '',
-        role: userData.role || 'customer',
-        address: userData.address || '',
-        walletBalance: Number(userData.walletBalance || 1000),
-        subscriptionActive: true,
-        status: 'Active',
-        createdAt: new Date().toISOString().split('T')[0]
-      },
-      ...prev.filter(u => u.email.toLowerCase() !== userData.email.toLowerCase())
-    ]);
-
-    logAction("USER_CREATED", `Created ${userData.role} user: ${userData.name}`);
-    showToast(`Created new ${userData.role} user in Database!`);
-    return created;
-  };
-
-  const updateDbUser = async (userId, updates) => {
-    db.updateUser(userId, updates);
-
-    if (isSupabaseConfigured()) {
-      try {
-        const dbUpdates = {};
-        if (updates.name !== undefined) dbUpdates.name = updates.name;
-        if (updates.email !== undefined) dbUpdates.email = updates.email;
-        if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
-        if (updates.role !== undefined) dbUpdates.role = updates.role;
-        if (updates.address !== undefined) dbUpdates.address = updates.address;
-        if (updates.walletBalance !== undefined) dbUpdates.wallet_balance = Number(updates.walletBalance);
-        if (updates.status !== undefined) dbUpdates.status = updates.status;
-
-        await supabase.from('profiles').update(dbUpdates).eq('id', userId);
-      } catch (e) {
-        console.error("Supabase user update exception:", e);
-      }
-    }
-
-    setDbUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
-    if (user && user.id === userId) {
-      setUser(prev => ({ ...prev, ...updates }));
-    }
-    logAction("USER_UPDATED", `Updated user ID: ${userId}`);
-    showToast("User details updated in Database!");
-  };
-
-  const deleteDbUser = async (userId) => {
-    db.deleteUser(userId);
-
-    if (isSupabaseConfigured()) {
-      try {
-        const { error } = await supabase.from('profiles').delete().eq('id', userId);
-        if (error) {
-          await supabase.from('profiles').update({ status: 'Deleted' }).eq('id', userId);
-        }
-      } catch (e) {
-        console.error("Supabase user delete exception:", e);
-      }
-    }
-
-    setDbUsers(prev => prev.filter(u => u.id !== userId));
-    logAction("USER_DELETED", `Deleted user ID: ${userId}`);
-    showToast("User account removed from Database", "info");
-  };
-
-  // Delivery Distribution DB sync with Supabase
-  const updateDistributionStatus = async (distId, newStatus) => {
-    db.updateDeliveryStatus(distId, newStatus);
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('deliveries').update({ status: newStatus }).eq('id', distId);
-      } catch (e) {
-        console.error("Supabase delivery status update exception:", e);
-      }
-    }
-
-    setDistributionList(prev => prev.map(d => d.id === distId ? { ...d, status: newStatus } : d));
-    logAction("DELIVERY_STATUS_CHANGED", `Updated delivery ${distId} status to ${newStatus}`);
-    showToast(`Delivery status updated to ${newStatus}`);
-  };
-
-  // Database Backup / Restore / Reset
-  const exportDatabaseBackup = () => {
-    const backupObj = {
-      version: "2.0",
-      timestamp: new Date().toISOString(),
-      users: dbUsers,
-      products: products,
-      deliveries: distributionList,
-      logs: dbLogs
-    };
-    const jsonStr = JSON.stringify(backupObj, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `srivari_database_backup_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    showToast("Database backup exported successfully!");
-  };
-
-  const importDatabaseBackup = async (jsonString) => {
-    const success = db.importBackupJSON(jsonString);
-    if (success) {
-      try {
-        const data = JSON.parse(jsonString);
-        if (isSupabaseConfigured() && data.products && data.products.length > 0) {
-          for (const p of data.products) {
-            await supabase.from('products').upsert({
-              id: p.id,
-              name: p.name,
-              category: p.category,
-              price: Number(p.price),
-              unit: p.unit,
-              image: p.image,
-              description: p.description,
-              in_stock: p.inStock,
-              stock_count: p.stockCount,
-              nutritional_info: p.nutritionalInfo || {}
-            });
-          }
-        }
-      } catch (e) {
-        console.error("Error writing backup JSON to Supabase:", e);
-      }
-      setProducts(db.getProducts());
-      setDbUsers(db.getUsers());
-      setDistributionList(db.getDeliveries());
-      logAction("SYSTEM_RESTORE", "Restored database from JSON backup file");
-      showToast("Database restored successfully from backup file!");
-    } else {
-      showToast("Invalid database backup file", "error");
-    }
-  };
-
-  const resetDatabaseToDefaults = async () => {
-    db.resetToFactoryDefaults();
-    setProducts(db.getProducts());
-    setDbUsers(db.getUsers());
-    setDistributionList(db.getDeliveries());
-    logAction("FACTORY_RESET", "Reset database to Srivari Milk Farms initial seeds");
-    showToast("Database reset to factory defaults!");
-  };
-
-  // Save cart to localStorage
   useEffect(() => {
-    localStorage.setItem('srivari_cart', JSON.stringify(cart));
+    try {
+      localStorage.setItem(
+        'srivari_cart',
+        JSON.stringify(cart)
+      );
+    } catch (error) {
+      console.error(
+        'Cart localStorage error:',
+        error
+      );
+    }
   }, [cart]);
 
-  // Cart operations
-  const addToCart = (product, quantity = 1, buyType = "one-time", frequency = "daily") => {
-    if (buyType === 'subscription' && !user) {
-      showToast("Please log in to your account to start a daily milk subscription.", "info");
+  const addToCart = (
+    product,
+    quantity = 1,
+    buyType = 'one-time',
+    frequency = 'daily'
+  ) => {
+    if (
+      buyType === 'subscription' &&
+      !user
+    ) {
+      showToast(
+        'Please log in to start a daily milk subscription.',
+        'info'
+      );
+
       navigate('/login');
+
       return false;
     }
+
     setCart(prevCart => {
-      const cartItemId = `${product.id}-${buyType}-${frequency}`;
-      const existingIndex = prevCart.findIndex(item => item.id === cartItemId);
-      if (existingIndex > -1) {
-        const updated = [...prevCart];
-        updated[existingIndex].quantity += quantity;
-        return updated;
-      } else {
-        return [
-          ...prevCart,
-          {
-            id: cartItemId,
-            productId: product.id,
-            product,
-            quantity,
-            buyType,
-            frequency,
-            startDate: new Date().toISOString().split('T')[0],
-            bottleType: "glass"
-          }
+      const cartItemId =
+        `${product.id}-${buyType}-${frequency}`;
+
+      const existingIndex =
+        prevCart.findIndex(
+          item =>
+            item.id ===
+            cartItemId
+        );
+
+      if (
+        existingIndex >= 0
+      ) {
+        const updated = [
+          ...prevCart
         ];
+
+        updated[
+          existingIndex
+        ] = {
+          ...updated[
+          existingIndex
+          ],
+          quantity:
+            Number(
+              updated[
+                existingIndex
+              ].quantity || 0
+            ) + Number(quantity)
+        };
+
+        return updated;
       }
+
+      return [
+        ...prevCart,
+        {
+          id: cartItemId,
+          productId:
+            product.id,
+          product,
+          quantity:
+            Number(quantity),
+          buyType,
+          frequency,
+          startDate:
+            new Date()
+              .toISOString()
+              .split('T')[0],
+          bottleType:
+            'glass'
+        }
+      ];
     });
-    showToast(`Added ${product.name} (${buyType === 'subscription' ? 'Subscription' : 'One-time'}) to cart!`);
+
+    showToast(
+      `Added ${product.name} (${buyType === 'subscription'
+        ? 'Subscription'
+        : 'One-time'
+      }) to cart!`
+    );
+
     return true;
   };
 
-  const removeFromCart = (cartItemId) => {
-    setCart(prev => prev.filter(item => item.id !== cartItemId));
-    showToast("Item removed from cart", "info");
-  };
+  const removeFromCart =
+    cartItemId => {
+      setCart(prev =>
+        prev.filter(
+          item =>
+            item.id !==
+            cartItemId
+        )
+      );
 
-  const updateCartQuantity = (cartItemId, delta) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === cartItemId) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : item;
-      }
-      return item;
-    }));
-  };
+      showToast(
+        'Item removed from cart',
+        'info'
+      );
+    };
+
+  const updateCartQuantity =
+    (cartItemId, delta) => {
+      setCart(prev =>
+        prev.map(item => {
+          if (
+            item.id !==
+            cartItemId
+          ) {
+            return item;
+          }
+
+          const newQuantity =
+            Number(
+              item.quantity || 0
+            ) +
+            Number(delta);
+
+          return newQuantity >
+            0
+            ? {
+              ...item,
+              quantity:
+                newQuantity
+            }
+            : item;
+        })
+      );
+    };
 
   const clearCart = () => {
     setCart([]);
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-  const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const cartTotal =
+    cart.reduce(
+      (total, item) =>
+        total +
+        Number(
+          item.product?.price ||
+          0
+        ) *
+        Number(
+          item.quantity ||
+          0
+        ),
+      0
+    );
 
-  // Authentication & Customer Registration
-  const signUpCustomer = async ({ name, email, phone, address, password }) => {
-    let insertedSuccessfully = false;
-    let supabaseUserId = null;
+  const cartItemCount =
+    cart.reduce(
+      (total, item) =>
+        total +
+        Number(
+          item.quantity ||
+          0
+        ),
+      0
+    );
 
-    if (isSupabaseConfigured()) {
-      try {
-        const { data: authData } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              name,
-              phone,
-              address,
-              role: 'customer'
-            }
-          }
-        });
+  /*
+   * ------------------------------------------------------------
+   * AUTHENTICATION
+   * ------------------------------------------------------------
+   */
 
-        const targetUserId = authData?.user?.id;
-        if (targetUserId) {
-          supabaseUserId = targetUserId;
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: targetUserId,
-              name: name,
-              email: email,
-              phone: phone || '',
-              address: address || '',
-              role: 'customer',
-              wallet_balance: 1000.00,
-              status: 'Active'
-            }, { onConflict: 'id' });
+  const signUpCustomer =
+    async ({
+      name,
+      email,
+      phone,
+      address,
+      password
+    }) => {
+      if (
+        !isSupabaseConfigured()
+      ) {
+        showToast(
+          'Supabase is not configured.',
+          'error'
+        );
 
-          if (!profileError) {
-            insertedSuccessfully = true;
-          }
-        }
-
-        if (!insertedSuccessfully) {
-          const { data: checkData } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle();
-
-          if (checkData?.id) {
-            insertedSuccessfully = true;
-            supabaseUserId = checkData.id;
-          }
-        }
-      } catch (e) {
-        console.error("Supabase customer sign up exception:", e);
+        return false;
       }
-    } else {
-      insertedSuccessfully = true;
-    }
 
-    if (insertedSuccessfully) {
-      const newId = supabaseUserId || generateUuid();
-      const newUser = db.addUser({
-        id: newId,
-        name,
-        email,
-        phone: phone || "+91 98765 43210",
-        address: address || "Flat 402, Green Glen Layout, Bellandur, Bengaluru",
-        role: 'customer',
-        walletBalance: 1000,
-        subscriptionActive: true
-      });
-      setDbUsers(db.getUsers());
-      setUser(newUser);
-      logAction("CUSTOMER_SIGNUP", `New customer registered: ${name} (${email})`);
-      showToast("Signup successful", "success");
-      return true;
-    } else {
-      showToast("Signup failed. Please try again.", "error");
-      return false;
-    }
-  };
-
-  const login = async (email, password, role = "customer") => {
-    if (!email || !password) {
-      showToast("Email and password are required.", "error");
-      return false;
-    }
-
-    if (isSupabaseConfigured()) {
       try {
-        const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password
-        });
+        const normalizedEmail =
+          email
+            .trim()
+            .toLowerCase();
 
-        if (authErr || !authData?.user) {
-          showToast(authErr?.message || "Invalid credentials. Please check your email and password.", "error");
-          return false;
+        const {
+          data,
+          error
+        } =
+          await supabase.auth.signUp({
+            email:
+              normalizedEmail,
+            password,
+
+            options: {
+              data: {
+                name,
+                phone:
+                  phone || '',
+                address:
+                  address || '',
+                role:
+                  'customer'
+              }
+            }
+          });
+
+        if (error) {
+          throw error;
         }
 
-        let { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .maybeSingle();
+        const authUser =
+          data?.user;
 
-        if (profileError) {
-          await supabase.auth.signOut();
-          showToast("Unable to load your account profile. Please try again.", "error");
-          return false;
+        if (!authUser) {
+          throw new Error(
+            'Supabase did not return a user.'
+          );
         }
 
-        if (!profile) {
-          const result = await supabase
+        /*
+         * When email confirmation is disabled,
+         * create/update profile immediately.
+         *
+         * When email confirmation is enabled,
+         * the profile should normally be created
+         * by your database trigger.
+         */
+        if (data.session) {
+          const {
+            error:
+            profileError
+          } =
+            await supabase
+              .from('profiles')
+              .upsert(
+                {
+                  id:
+                    authUser.id,
+                  name,
+                  email:
+                    normalizedEmail,
+                  phone:
+                    phone || '',
+                  address:
+                    address || '',
+                  role:
+                    'customer',
+                  wallet_balance:
+                    1000,
+                  status:
+                    'Active'
+                },
+                {
+                  onConflict:
+                    'id'
+                }
+              );
+
+          if (
+            profileError
+          ) {
+            throw profileError;
+          }
+        }
+
+        showToast(
+          data.session
+            ? 'Signup successful. You are now logged in.'
+            : 'Account created. Please verify your email, then log in.',
+          'success'
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          'Supabase signup error:',
+          error
+        );
+
+        showToast(
+          error?.message ||
+          'Signup failed.',
+          'error'
+        );
+
+        return false;
+      }
+    };
+
+  const login =
+    async (
+      email,
+      password,
+      role = 'customer'
+    ) => {
+      if (
+        !email ||
+        !password
+      ) {
+        showToast(
+          'Email and password are required.',
+          'error'
+        );
+
+        return false;
+      }
+
+      if (
+        !isSupabaseConfigured()
+      ) {
+        showToast(
+          'Supabase is not configured.',
+          'error'
+        );
+
+        return false;
+      }
+
+      try {
+        const normalizedEmail =
+          email
+            .trim()
+            .toLowerCase();
+
+        const {
+          data,
+          error
+        } =
+          await supabase.auth.signInWithPassword(
+            {
+              email:
+                normalizedEmail,
+              password
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        if (!data?.user) {
+          throw new Error(
+            'Login succeeded but no Supabase user was returned.'
+          );
+        }
+
+        const {
+          data:
+          profile,
+          error:
+          profileError
+        } =
+          await supabase
             .from('profiles')
             .select('*')
-            .eq('email', authData.user.email)
+            .eq(
+              'id',
+              data.user.id
+            )
             .maybeSingle();
-          profile = result.data;
-          profileError = result.error;
+
+        if (profileError) {
+          throw profileError;
         }
 
-        if (profileError || !profile || ['Deleted', 'Inactive'].includes(profile.status)) {
+        if (
+          !profile ||
+          ['Deleted', 'Inactive'].includes(
+            profile.status
+          )
+        ) {
           await supabase.auth.signOut();
-          showToast("Account not found or inactive. Please contact support.", "error");
-          return false;
+
+          throw new Error(
+            'Account is not active.'
+          );
         }
 
-        const userRole = profile.role || authData.user.user_metadata?.role || 'customer';
+        const userRole =
+          profile.role ||
+          data.user
+            .user_metadata
+            ?.role ||
+          'customer';
 
-        if (role === 'admin' && userRole !== 'admin') {
+        if (
+          role === 'admin' &&
+          userRole !== 'admin'
+        ) {
           await supabase.auth.signOut();
-          showToast("Access Denied: This account does not have Admin privileges.", "error");
+
+          showToast(
+            'Access denied: this account does not have Admin privileges.',
+            'error'
+          );
+
           return false;
         }
 
         const loggedInUser = {
-          id: profile.id || authData.user.id,
-          name: profile.name || authData.user.user_metadata?.name || authData.user.email,
-          email: profile.email || authData.user.email,
-          phone: profile.phone || '',
-          address: profile.address || '',
-          role: userRole,
-          walletBalance: Number(profile.wallet_balance || (userRole === 'admin' ? 50000 : 1000)),
-          status: profile.status || 'Active'
+          id:
+            profile.id ||
+            data.user.id,
+
+          name:
+            profile.name ||
+            data.user
+              .user_metadata
+              ?.name ||
+            data.user.email,
+
+          email:
+            profile.email ||
+            data.user.email,
+
+          phone:
+            profile.phone ||
+            '',
+
+          address:
+            profile.address ||
+            '',
+
+          role:
+            userRole,
+
+          walletBalance:
+            Number(
+              profile.wallet_balance ??
+              (
+                userRole ===
+                  'admin'
+                  ? 50000
+                  : 1000
+              )
+            ),
+
+          status:
+            profile.status ||
+            'Active'
         };
 
-        setUser(loggedInUser);
-        localStorage.setItem('srivari_user', JSON.stringify(loggedInUser));
-        await logAction("USER_LOGIN", `Logged in user: ${loggedInUser.name} (${loggedInUser.role})`);
-        showToast(`Welcome back, ${loggedInUser.name}! Logged in as ${loggedInUser.role.toUpperCase()}`);
+        setUser(
+          loggedInUser
+        );
+
+        await logAction(
+          'USER_LOGIN',
+          `Logged in user: ${loggedInUser.name} (${loggedInUser.role})`
+        );
+
+        showToast(
+          `Welcome back, ${loggedInUser.name}!`
+        );
+
         return true;
       } catch (error) {
-        console.error("Supabase authentication error:", error);
-        showToast("Unable to sign in right now. Please try again.", "error");
+        console.error(
+          'Supabase authentication error:',
+          error
+        );
+
+        showToast(
+          error?.message ||
+          'Invalid credentials.',
+          'error'
+        );
+
         return false;
       }
-    }
-
-    // Local database is used only when Supabase is intentionally not configured.
-    const existing = dbUsers.find(u =>
-      u.email?.toLowerCase() === email.trim().toLowerCase() &&
-      u.status !== 'Deleted'
-    );
-
-    if (!existing) {
-      showToast("Account not found. Please contact support.", "error");
-      return false;
-    }
-
-    if (role === 'admin' && existing.role !== 'admin') {
-      showToast("Access Denied: This account does not have Admin privileges.", "error");
-      return false;
-    }
-
-    setUser(existing);
-    localStorage.setItem('srivari_user', JSON.stringify(existing));
-    await logAction("USER_LOGIN", `Logged in user: ${existing.name} (${existing.role})`);
-    showToast(`Welcome back, ${existing.name}! Logged in as ${existing.role.toUpperCase()}`);
-    return true;
-  };
-
-  const logout = async () => {
-    if (isSupabaseConfigured()) {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Supabase logout error:', error);
-        showToast('Unable to log out. Please try again.', 'error');
-        return false;
-      }
-    }
-
-    setUser(null);
-    localStorage.removeItem('srivari_user');
-    showToast("Logged out successfully", "info");
-    return true;
-  };
-
-  // Subscription management
-  const toggleSubscriptionPause = (subId) => {
-    setSubscriptions(prev => prev.map(sub => {
-      if (sub.id === subId) {
-        const newStatus = sub.status === 'Active' ? 'Paused' : 'Active';
-        showToast(`Subscription ${newStatus === 'Active' ? 'Resumed' : 'Paused'}`);
-        return { ...sub, status: newStatus };
-      }
-      return sub;
-    }));
-  };
-
-  const updateSubscriptionQty = (subId, newQty) => {
-    setSubscriptions(prev => prev.map(sub => {
-      if (sub.id === subId) {
-        showToast(`Subscription updated to ${newQty} Liters/day`);
-        return { ...sub, quantity: newQty, pricePerDay: newQty * 75 };
-      }
-      return sub;
-    }));
-  };
-
-  // Order Placement
-  const placeOrder = (paymentDetails) => {
-    const newOrder = {
-      id: `ORD-${Math.floor(10000 + Math.random() * 90000)}`,
-      date: new Date().toISOString().split('T')[0],
-      items: cart.map(i => ({ name: `${i.product.name} (${i.quantity}x)`, price: i.product.price * i.quantity })),
-      totalAmount: cartTotal,
-      status: "Confirmed",
-      deliverySlot: "5:30 AM - 6:30 AM Tomorrow",
-      paymentMethod: paymentDetails.method || "Srivari Wallet"
     };
 
-    cart.forEach(item => {
-      if (item.buyType === 'subscription') {
-        setSubscriptions(prev => [
-          ...prev,
-          {
-            id: `sub-${Math.floor(1000 + Math.random() * 9000)}`,
-            productName: item.product.name,
-            quantity: item.quantity,
-            unit: item.product.unit,
-            frequency: item.frequency === 'daily' ? 'Daily Morning' : 'Alternate Days',
-            deliverySlot: "5:30 AM - 6:30 AM",
-            status: "Active",
-            startDate: item.startDate || new Date().toISOString().split('T')[0],
-            pricePerDay: item.product.price * item.quantity,
-            bottlesExchanged: 0
+  const logout =
+    async () => {
+      try {
+        if (
+          isSupabaseConfigured()
+        ) {
+          await supabase.auth.signOut();
+        }
+      } catch (error) {
+        console.error(
+          'Supabase logout error:',
+          error
+        );
+      }
+
+      setUser(null);
+
+      setSubscriptions([]);
+      setOrders([]);
+      setDistributionList([]);
+
+      localStorage.removeItem(
+        'srivari_user'
+      );
+
+      showToast(
+        'Logged out successfully',
+        'info'
+      );
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * CREATE SUBSCRIPTION
+   * ------------------------------------------------------------
+   */
+
+  const createSubscription =
+    async ({
+      item,
+      deliverySlot
+    }) => {
+      if (!user?.id) {
+        showToast(
+          'Please log in to start a milk subscription.',
+          'error'
+        );
+
+        return null;
+      }
+
+      if (
+        !isSupabaseConfigured()
+      ) {
+        showToast(
+          'Supabase is not configured.',
+          'error'
+        );
+
+        return null;
+      }
+
+      try {
+        const productId =
+          String(
+            item?.productId ||
+            item?.product_id ||
+            item?.product?.id ||
+            ''
+          );
+
+        const quantity =
+          Number(
+            item?.quantity || 1
+          );
+
+        if (
+          !productId ||
+          !Number.isInteger(
+            quantity
+          ) ||
+          quantity <= 0
+        ) {
+          throw new Error(
+            'Invalid subscription product or quantity.'
+          );
+        }
+
+        /*
+         * ALWAYS get product price from Supabase.
+         */
+        const {
+          data: product,
+          error:
+          productError
+        } =
+          await supabase
+            .from('products')
+            .select(
+              'id,name,unit,price,subscription_available,in_stock,stock_count'
+            )
+            .eq(
+              'id',
+              productId
+            )
+            .single();
+
+        if (
+          productError ||
+          !product
+        ) {
+          throw (
+            productError ||
+            new Error(
+              'Subscription product was not found.'
+            )
+          );
+        }
+
+        if (
+          product.subscription_available ===
+          false
+        ) {
+          throw new Error(
+            `${product.name} is not available for subscription.`
+          );
+        }
+
+        if (
+          product.in_stock ===
+          false ||
+          Number(
+            product.stock_count ||
+            0
+          ) < quantity
+        ) {
+          throw new Error(
+            `${product.name} does not have enough stock.`
+          );
+        }
+
+        const startDate =
+          item?.startDate ||
+          new Date()
+            .toISOString()
+            .split('T')[0];
+
+        /*
+         * IMPORTANT:
+         * Store "daily" in the database because
+         * subscriptions.frequency has default "daily".
+         */
+        const frequency =
+          item?.frequency ===
+            'alternate'
+            ? 'alternate'
+            : 'daily';
+
+        const dailyPrice =
+          Number(
+            product.price || 0
+          ) * quantity;
+
+        const {
+          data:
+          createdSubscription,
+          error:
+          subscriptionError
+        } =
+          await supabase
+            .from('subscriptions')
+            .insert({
+              user_id:
+                user.id,
+
+              product_id:
+                String(
+                  product.id
+                ),
+
+              quantity,
+
+              frequency,
+
+              delivery_slot:
+                deliverySlot ||
+                DEFAULT_DELIVERY_SLOT,
+
+              status:
+                'Active',
+
+              start_date:
+                startDate,
+
+              price_per_day:
+                dailyPrice,
+
+              bottles_exchanged:
+                0
+            })
+            .select('*')
+            .single();
+
+        if (
+          subscriptionError
+        ) {
+          console.error(
+            'Supabase subscription insert error:',
+            subscriptionError
+          );
+
+          throw subscriptionError;
+        }
+
+        /*
+         * Immediately refresh the real Supabase
+         * subscription list.
+         *
+         * This makes the new subscription available
+         * to the customer dashboard AND admin dashboard.
+         */
+        await fetchSubscriptions();
+
+        await logAction(
+          'SUBSCRIPTION_CREATED',
+          `Subscription created for ${product.name}: ${quantity} ${product.unit || 'Liter'} / ${frequency}`
+        );
+
+        showToast(
+          'Milk subscription started successfully!',
+          'success'
+        );
+
+        return createdSubscription;
+      } catch (error) {
+        console.error(
+          'Supabase subscription creation failed:',
+          error
+        );
+
+        showToast(
+          error?.message ||
+          'Unable to create the milk subscription.',
+          'error'
+        );
+
+        return null;
+      }
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * PAUSE / RESUME SUBSCRIPTION
+   * ------------------------------------------------------------
+   */
+
+  const toggleSubscriptionPause =
+    async subId => {
+      if (!user?.id) {
+        return;
+      }
+
+      const current =
+        subscriptions.find(
+          sub =>
+            sub.id ===
+            subId
+        );
+
+      if (!current) {
+        return;
+      }
+
+      /*
+       * Customers can only change their own
+       * subscriptions.
+       */
+      const query =
+        supabase
+          .from('subscriptions')
+          .update({
+            status:
+              current.status ===
+                'Active'
+                ? 'Paused'
+                : 'Active'
+          })
+          .eq(
+            'id',
+            subId
+          )
+          .eq(
+            'user_id',
+            user.id
+          )
+          .select('*')
+          .single();
+
+      const {
+        data,
+        error
+      } = await query;
+
+      if (error) {
+        console.error(
+          'Subscription status update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return;
+      }
+
+      setSubscriptions(
+        prev =>
+          prev.map(sub =>
+            sub.id ===
+              subId
+              ? {
+                ...sub,
+                status:
+                  data.status
+              }
+              : sub
+          )
+      );
+
+      await logAction(
+        'SUBSCRIPTION_STATUS_CHANGED',
+        `Subscription ${subId} changed to ${data.status}`
+      );
+
+      showToast(
+        data.status ===
+          'Active'
+          ? 'Subscription resumed'
+          : 'Subscription paused'
+      );
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * UPDATE SUBSCRIPTION QUANTITY
+   * ------------------------------------------------------------
+   */
+
+  const updateSubscriptionQty =
+    async (
+      subId,
+      newQty
+    ) => {
+      const quantity =
+        Number(newQty);
+
+      if (
+        !user?.id ||
+        !Number.isInteger(
+          quantity
+        ) ||
+        quantity <= 0
+      ) {
+        showToast(
+          'Invalid subscription quantity.',
+          'error'
+        );
+
+        return;
+      }
+
+      const current =
+        subscriptions.find(
+          sub =>
+            sub.id ===
+            subId
+        );
+
+      if (!current) {
+        return;
+      }
+
+      const product =
+        products.find(
+          p =>
+            p.id ===
+            current.productId
+        );
+
+      if (
+        product &&
+        Number(
+          product.stockCount ||
+          0
+        ) < quantity
+      ) {
+        showToast(
+          'Requested quantity is not available in stock.',
+          'error'
+        );
+
+        return;
+      }
+
+      const pricePerDay =
+        product
+          ? Number(
+            product.price ||
+            0
+          ) * quantity
+          : Number(
+            current.pricePerDay ||
+            0
+          );
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('subscriptions')
+          .update({
+            quantity,
+            price_per_day:
+              pricePerDay
+          })
+          .eq(
+            'id',
+            subId
+          )
+          .eq(
+            'user_id',
+            user.id
+          )
+          .select('*')
+          .single();
+
+      if (error) {
+        console.error(
+          'Subscription quantity update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return;
+      }
+
+      setSubscriptions(
+        prev =>
+          prev.map(sub =>
+            sub.id ===
+              subId
+              ? {
+                ...sub,
+                quantity:
+                  data.quantity,
+                pricePerDay:
+                  Number(
+                    data.price_per_day ||
+                    0
+                  )
+              }
+              : sub
+          )
+      );
+
+      await logAction(
+        'SUBSCRIPTION_UPDATED',
+        `Subscription ${subId} quantity changed to ${quantity}`
+      );
+
+      showToast(
+        `Subscription updated to ${quantity} ${product?.unit ||
+        'Liter'
+        } / day`
+      );
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * ONE-TIME ORDER
+   * ------------------------------------------------------------
+   */
+
+  const placeOneTimeOrder =
+    async details => {
+      if (
+        !isSupabaseConfigured()
+      ) {
+        showToast(
+          'Supabase is not configured.',
+          'error'
+        );
+
+        return null;
+      }
+
+      if (!cart.length) {
+        showToast(
+          'Your cart is empty.',
+          'error'
+        );
+
+        return null;
+      }
+
+      try {
+        const rpcItems =
+          cart.map(item => ({
+            product_id:
+              String(
+                item.productId ||
+                item.product_id ||
+                item.product?.id ||
+                ''
+              ),
+
+            quantity:
+              Number(
+                item.quantity ||
+                1
+              )
+          }));
+
+        const {
+          data,
+          error
+        } =
+          await supabase.rpc(
+            'create_one_time_order',
+            {
+              p_customer_name:
+                String(
+                  details?.customerName ||
+                  user?.name ||
+                  ''
+                ).trim(),
+
+              p_customer_email:
+                String(
+                  details?.customerEmail ||
+                  user?.email ||
+                  ''
+                )
+                  .trim()
+                  .toLowerCase(),
+
+              p_customer_phone:
+                String(
+                  details?.customerPhone ||
+                  user?.phone ||
+                  ''
+                ).trim(),
+
+              p_address:
+                String(
+                  details?.address ||
+                  user?.address ||
+                  ''
+                ).trim(),
+
+              p_items:
+                rpcItems,
+
+              p_delivery_slot:
+                details?.deliverySlot ||
+                DEFAULT_DELIVERY_SLOT,
+
+              p_instructions:
+                String(
+                  details?.instructions ||
+                  ''
+                ).trim() ||
+                null,
+
+              p_payment_method:
+                details?.paymentMethod ||
+                'UPI Instant Pay'
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        const createdOrder =
+          Array.isArray(data)
+            ? data[0]
+            : data;
+
+        clearCart();
+
+        setCheckoutOpen(
+          false
+        );
+
+        await fetchOrders();
+
+        await logAction(
+          'ONE_TIME_ORDER_PLACED',
+          `One-time order ${createdOrder?.id || 'created'} placed`
+        );
+
+        showToast(
+          'Order confirmed successfully!',
+          'success'
+        );
+
+        return createdOrder;
+      } catch (error) {
+        console.error(
+          'One-time order creation failed:',
+          error
+        );
+
+        showToast(
+          error?.message ||
+          'Unable to place your order.',
+          'error'
+        );
+
+        return null;
+      }
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * PLACE ORDER
+   * ------------------------------------------------------------
+   */
+
+  const placeOrder =
+    async paymentDetails => {
+      const hasSubscriptions =
+        cart.some(
+          item =>
+            item.buyType ===
+            'subscription'
+        );
+
+      const hasOneTime =
+        cart.some(
+          item =>
+            item.buyType !==
+            'subscription'
+        );
+
+      if (
+        hasSubscriptions &&
+        hasOneTime
+      ) {
+        showToast(
+          'Please checkout subscription and one-time items separately.',
+          'error'
+        );
+
+        return false;
+      }
+
+      if (
+        hasSubscriptions
+      ) {
+        if (!user) {
+          showToast(
+            'Please log in to start a subscription.',
+            'error'
+          );
+
+          return false;
+        }
+
+        const created = [];
+
+        for (
+          const item of cart
+        ) {
+          const subscription =
+            await createSubscription({
+              item,
+              deliverySlot:
+                paymentDetails?.deliverySlot
+            });
+
+          if (
+            !subscription
+          ) {
+            return false;
           }
-        ]);
-      }
-    });
 
-    setOrders(prev => [newOrder, ...prev]);
-    clearCart();
-    setCheckoutOpen(false);
-    logAction("ORDER_PLACED", `Order ${newOrder.id} placed for ₹${cartTotal}`);
-    showToast("🎉 Order Confirmed! Fresh Morning Delivery Scheduled.");
-  };
-
-  // One-time orders are created by CheckoutModal through the secure Supabase RPC.
-  // There is intentionally no direct client-side insert function here.
-
-  const updateOneTimeOrderStatus = async (orderId, newStatus) => {
-    if (isSupabaseConfigured()) {
-      try {
-        const { error } = await supabase
-          .from('one_time_orders')
-          .update({ status: newStatus })
-          .eq('id', orderId);
-
-        if (error) {
-          console.error('Supabase one-time order status update error:', error);
-          showToast(error.message || 'Unable to update order status.', 'error');
-          return false;
+          created.push(
+            subscription
+          );
         }
-      } catch (error) {
-        console.error('Supabase one-time order status update exception:', error);
-        showToast('Unable to update order status.', 'error');
+
+        clearCart();
+
+        setCheckoutOpen(
+          false
+        );
+
+        await fetchSubscriptions();
+
+        showToast(
+          'Milk subscription started successfully!',
+          'success'
+        );
+
+        return created;
+      }
+
+      return placeOneTimeOrder(
+        paymentDetails || {}
+      );
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * PRODUCT OPERATIONS
+   * ------------------------------------------------------------
+   */
+
+  const updateProductStockOrPrice =
+    async (
+      productId,
+      updates
+    ) => {
+      const dbUpdates = {};
+
+      if (
+        updates.price !==
+        undefined
+      ) {
+        dbUpdates.price =
+          Number(
+            updates.price
+          );
+      }
+
+      if (
+        updates.stockCount !==
+        undefined
+      ) {
+        dbUpdates.stock_count =
+          Number(
+            updates.stockCount
+          );
+      }
+
+      if (
+        updates.inStock !==
+        undefined
+      ) {
+        dbUpdates.in_stock =
+          updates.inStock;
+      }
+
+      if (
+        updates.nutritionalInfo !==
+        undefined
+      ) {
+        dbUpdates.nutritional_info =
+          updates.nutritionalInfo;
+      }
+
+      if (
+        updates.name !==
+        undefined
+      ) {
+        dbUpdates.name =
+          updates.name;
+      }
+
+      if (
+        updates.category !==
+        undefined
+      ) {
+        dbUpdates.category =
+          updates.category;
+      }
+
+      const {
+        error
+      } =
+        await supabase
+          .from('products')
+          .update(
+            dbUpdates
+          )
+          .eq(
+            'id',
+            productId
+          );
+
+      if (error) {
+        console.error(
+          'Product update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
         return false;
       }
-    }
 
-    db.updateOneTimeOrderStatus(orderId, newStatus);
-    setOneTimeOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-    await logAction("ONE_TIME_ORDER_STATUS_CHANGED", `Updated order ${orderId} status to ${newStatus}`);
-    showToast(`Order status updated to ${newStatus}`);
-    return true;
-  };
+      await fetchProducts();
 
-  const updateOneTimePaymentStatus = async (orderId, newPaymentStatus) => {
-    if (isSupabaseConfigured()) {
-      try {
-        const { error } = await supabase
-          .from('one_time_orders')
-          .update({ payment_status: newPaymentStatus })
-          .eq('id', orderId);
+      await logAction(
+        'PRODUCT_UPDATED',
+        `Updated product ID: ${productId}`
+      );
 
-        if (error) {
-          console.error('Supabase one-time order payment update error:', error);
-          showToast(error.message || 'Unable to update payment status.', 'error');
-          return false;
-        }
-      } catch (error) {
-        console.error('Supabase one-time order payment update exception:', error);
-        showToast('Unable to update payment status.', 'error');
+      showToast(
+        'Product updated successfully!'
+      );
+
+      return true;
+    };
+
+  const addProduct =
+    async newProdData => {
+      const prodId =
+        newProdData.id ||
+        `p-${Date.now()}`;
+
+      const productData = {
+        id: prodId,
+        name:
+          newProdData.name,
+        category:
+          newProdData.category,
+        price:
+          Number(
+            newProdData.price ||
+            0
+          ),
+        unit:
+          newProdData.unit ||
+          '',
+        rating: 5,
+        reviews_count: 1,
+        image:
+          newProdData.image ||
+          '',
+        badge:
+          'New Launch',
+        description:
+          newProdData.description ||
+          '',
+        in_stock: true,
+        stock_count: 100,
+        subscription_available:
+          true,
+        nutritional_info:
+          newProdData.nutritionalInfo ||
+          {}
+      };
+
+      const {
+        error
+      } =
+        await supabase
+          .from('products')
+          .insert(
+            productData
+          );
+
+      if (error) {
+        console.error(
+          'Product insert failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
         return false;
       }
-    }
 
-    db.updateOneTimePaymentStatus(orderId, newPaymentStatus);
-    setOneTimeOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: newPaymentStatus } : o));
-    await logAction("ONE_TIME_ORDER_PAYMENT_CHANGED", `Updated order ${orderId} payment status to ${newPaymentStatus}`);
-    showToast(`Payment status updated to ${newPaymentStatus}`);
-    return true;
-  };
+      await fetchProducts();
 
-  // Contact Queries operations with Supabase sync
-  const submitContactQuery = async ({ name, email, phone, subject, message }) => {
-    const queryId = `query-${Date.now()}`;
-    const newQueryObj = {
-      id: queryId,
+      await logAction(
+        'PRODUCT_ADDED',
+        `Added product: ${newProdData.name}`
+      );
+
+      showToast(
+        `Added ${newProdData.name} to database!`
+      );
+
+      return true;
+    };
+
+  const deleteProduct =
+    async productId => {
+      const {
+        error
+      } =
+        await supabase
+          .from('products')
+          .delete()
+          .eq(
+            'id',
+            productId
+          );
+
+      if (error) {
+        console.error(
+          'Product delete failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      setProducts(
+        prev =>
+          prev.filter(
+            product =>
+              product.id !==
+              productId
+          )
+      );
+
+      await logAction(
+        'PRODUCT_DELETED',
+        `Deleted product ID: ${productId}`
+      );
+
+      showToast(
+        'Product deleted.',
+        'info'
+      );
+
+      return true;
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * USER OPERATIONS
+   * ------------------------------------------------------------
+   */
+
+  const addDbUser =
+    async userData => {
+      const targetId =
+        userData.id ||
+        generateUuid();
+
+      const {
+        error
+      } =
+        await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: targetId,
+              name:
+                userData.name,
+              email:
+                userData.email
+                  ?.trim()
+                  .toLowerCase(),
+              phone:
+                userData.phone ||
+                '',
+              role:
+                userData.role ||
+                'customer',
+              address:
+                userData.address ||
+                '',
+              wallet_balance:
+                Number(
+                  userData.walletBalance ||
+                  1000
+                ),
+              status:
+                'Active'
+            },
+            {
+              onConflict:
+                'id'
+            }
+          );
+
+      if (error) {
+        console.error(
+          'User insert failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return null;
+      }
+
+      await fetchProfiles();
+
+      await logAction(
+        'USER_CREATED',
+        `Created user: ${userData.name}`
+      );
+
+      showToast(
+        `Created ${userData.name}`
+      );
+
+      return {
+        id: targetId,
+        ...userData
+      };
+    };
+
+  const updateDbUser =
+    async (
+      userId,
+      updates
+    ) => {
+      const dbUpdates = {};
+
+      if (
+        updates.name !==
+        undefined
+      )
+        dbUpdates.name =
+          updates.name;
+
+      if (
+        updates.email !==
+        undefined
+      )
+        dbUpdates.email =
+          updates.email;
+
+      if (
+        updates.phone !==
+        undefined
+      )
+        dbUpdates.phone =
+          updates.phone;
+
+      if (
+        updates.role !==
+        undefined
+      )
+        dbUpdates.role =
+          updates.role;
+
+      if (
+        updates.address !==
+        undefined
+      )
+        dbUpdates.address =
+          updates.address;
+
+      if (
+        updates.walletBalance !==
+        undefined
+      )
+        dbUpdates.wallet_balance =
+          Number(
+            updates.walletBalance
+          );
+
+      if (
+        updates.status !==
+        undefined
+      )
+        dbUpdates.status =
+          updates.status;
+
+      const {
+        error
+      } =
+        await supabase
+          .from('profiles')
+          .update(
+            dbUpdates
+          )
+          .eq(
+            'id',
+            userId
+          );
+
+      if (error) {
+        console.error(
+          'User update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchProfiles();
+
+      if (
+        user?.id ===
+        userId
+      ) {
+        setUser(
+          prev => ({
+            ...prev,
+            ...updates
+          })
+        );
+      }
+
+      await logAction(
+        'USER_UPDATED',
+        `Updated user ID: ${userId}`
+      );
+
+      return true;
+    };
+
+  const deleteDbUser =
+    async userId => {
+      const {
+        error
+      } =
+        await supabase
+          .from('profiles')
+          .update({
+            status:
+              'Deleted'
+          })
+          .eq(
+            'id',
+            userId
+          );
+
+      if (error) {
+        console.error(
+          'User delete failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchProfiles();
+
+      await logAction(
+        'USER_DELETED',
+        `Deleted user ID: ${userId}`
+      );
+
+      showToast(
+        'User account removed.',
+        'info'
+      );
+
+      return true;
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * DELIVERY
+   * ------------------------------------------------------------
+   */
+
+  const updateDistributionStatus =
+    async (
+      distId,
+      newStatus
+    ) => {
+      const {
+        error
+      } =
+        await supabase
+          .from('deliveries')
+          .update({
+            status:
+              newStatus
+          })
+          .eq(
+            'id',
+            distId
+          );
+
+      if (error) {
+        console.error(
+          'Delivery update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      setDistributionList(
+        prev =>
+          prev.map(
+            delivery =>
+              delivery.id ===
+                distId
+                ? {
+                  ...delivery,
+                  status:
+                    newStatus
+                }
+                : delivery
+          )
+      );
+
+      await logAction(
+        'DELIVERY_STATUS_CHANGED',
+        `Updated delivery ${distId} to ${newStatus}`
+      );
+
+      showToast(
+        `Delivery status updated to ${newStatus}`
+      );
+
+      return true;
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * ONE-TIME ORDER ADMIN OPERATIONS
+   * ------------------------------------------------------------
+   */
+
+  const updateOneTimeOrderStatus =
+    async (
+      orderId,
+      newStatus
+    ) => {
+      const {
+        error
+      } =
+        await supabase
+          .from('one_time_orders')
+          .update({
+            status:
+              newStatus
+          })
+          .eq(
+            'id',
+            orderId
+          );
+
+      if (error) {
+        console.error(
+          'One-time order status update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchOneTimeOrders();
+
+      return true;
+    };
+
+  const updateOneTimePaymentStatus =
+    async (
+      orderId,
+      paymentStatus
+    ) => {
+      const {
+        error
+      } =
+        await supabase
+          .from('one_time_orders')
+          .update({
+            payment_status:
+              paymentStatus
+          })
+          .eq(
+            'id',
+            orderId
+          );
+
+      if (error) {
+        console.error(
+          'Payment status update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchOneTimeOrders();
+
+      return true;
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * CONTACT QUERIES
+   * ------------------------------------------------------------
+   */
+
+  const submitContactQuery =
+    async ({
       name,
       email,
-      phone: phone || '',
-      subject: subject || 'Milk Subscription Inquiry',
-      message,
-      status: 'Pending',
-      created_at: new Date().toISOString()
+      phone,
+      subject,
+      message
+    }) => {
+      const {
+        error
+      } =
+        await supabase
+          .from('contact_queries')
+          .insert({
+            name,
+            email,
+            phone:
+              phone || '',
+            subject:
+              subject ||
+              'Milk Subscription Inquiry',
+            message,
+            status:
+              'Pending'
+          });
+
+      if (error) {
+        console.error(
+          'Contact query insert failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchContactQueries();
+
+      showToast(
+        'Message sent successfully!'
+      );
+
+      return true;
     };
 
-    if (isSupabaseConfigured()) {
-      try {
-        const { error } = await supabase.from('contact_queries').insert({
-          id: queryId,
-          name,
-          email,
-          phone: phone || '',
-          subject: subject || 'Milk Subscription Inquiry',
-          message,
-          status: 'Pending'
-        });
-        if (error) console.error("Supabase insert contact query error:", error);
-      } catch (e) {
-        console.error("Supabase contact query submission exception:", e);
-      }
-    }
+  const updateContactQueryStatus =
+    async (
+      queryId,
+      newStatus
+    ) => {
+      const {
+        error
+      } =
+        await supabase
+          .from('contact_queries')
+          .update({
+            status:
+              newStatus
+          })
+          .eq(
+            'id',
+            queryId
+          );
 
-    db.saveContactQuery(newQueryObj);
-    setContactQueries(prev => [newQueryObj, ...prev]);
-    logAction("CONTACT_QUERY_SUBMITTED", `Customer query submitted by ${name} (${email})`);
-    showToast("Message sent to Srivari Farm Care Desk! We will call you back shortly.", "success");
-    return true;
-  };
+      if (error) {
+        console.error(
+          'Contact query update failed:',
+          error
+        );
 
-  const updateContactQueryStatus = async (queryId, newStatus) => {
-    if (newStatus === 'Completed') {
-      // Requirement 5: Automatically remove from active queries list when completed
-      if (isSupabaseConfigured()) {
-        try {
-          await supabase.from('contact_queries').delete().eq('id', queryId);
-        } catch (e) {
-          console.error("Supabase contact query deletion exception:", e);
-        }
-      }
-      db.deleteContactQuery(queryId);
-      setContactQueries(prev => prev.filter(q => q.id !== queryId));
-      logAction("CONTACT_QUERY_COMPLETED", `Query ${queryId} completed & removed from active list`);
-      showToast("Query marked as Completed and removed from active list!", "info");
-    } else {
-      if (isSupabaseConfigured()) {
-        try {
-          await supabase.from('contact_queries').update({ status: newStatus }).eq('id', queryId);
-        } catch (e) {
-          console.error("Supabase contact query status update exception:", e);
-        }
-      }
-      db.updateContactQueryStatus(queryId, newStatus);
-      setContactQueries(prev => prev.map(q => q.id === queryId ? { ...q, status: newStatus } : q));
-      logAction("CONTACT_QUERY_UPDATED", `Updated query ${queryId} status to ${newStatus}`);
-      showToast(`Query status updated to ${newStatus}`);
-    }
-  };
+        showToast(
+          error.message,
+          'error'
+        );
 
-  const deleteContactQuery = async (queryId) => {
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('contact_queries').delete().eq('id', queryId);
-      } catch (e) {
-        console.error("Supabase delete contact query exception:", e);
+        return false;
       }
-    }
-    db.deleteContactQuery(queryId);
-    setContactQueries(prev => prev.filter(q => q.id !== queryId));
-    logAction("CONTACT_QUERY_DELETED", `Deleted query ID: ${queryId}`);
-    showToast("Contact query removed from database", "info");
-  };
 
-  // Employee DB operations with Supabase Sync
-  const addEmployee = async (empData) => {
-    const empId = empData.id || `emp-${Date.now()}`;
-    const formattedEmp = {
-      id: empId,
-      name: empData.name,
-      phone: empData.phone || '',
-      email: empData.email || '',
-      role: empData.role || 'Delivery Agent',
-      category: empData.category || 'Delivery Agent',
-      address: empData.address || '',
-      joining_date: empData.joiningDate || new Date().toISOString().split('T')[0],
-      salary: Number(empData.salary || 20000),
-      status: empData.status || 'Active'
+      await fetchContactQueries();
+
+      return true;
     };
 
-    if (isSupabaseConfigured()) {
+  const deleteContactQuery =
+    async queryId => {
+      const {
+        error
+      } =
+        await supabase
+          .from('contact_queries')
+          .delete()
+          .eq(
+            'id',
+            queryId
+          );
+
+      if (error) {
+        console.error(
+          'Contact query delete failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchContactQueries();
+
+      return true;
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * EMPLOYEES
+   * ------------------------------------------------------------
+   */
+
+  const addEmployee =
+    async empData => {
+      const employee = {
+        id:
+          empData.id ||
+          generateUuid(),
+
+        name:
+          empData.name,
+
+        phone:
+          empData.phone ||
+          '',
+
+        email:
+          empData.email ||
+          '',
+
+        role:
+          empData.role ||
+          'Delivery Agent',
+
+        category:
+          empData.category ||
+          'Delivery Agent',
+
+        address:
+          empData.address ||
+          '',
+
+        joining_date:
+          empData.joiningDate ||
+          new Date()
+            .toISOString()
+            .split('T')[0],
+
+        salary:
+          Number(
+            empData.salary ||
+            20000
+          ),
+
+        status:
+          empData.status ||
+          'Active'
+      };
+
+      const {
+        error
+      } =
+        await supabase
+          .from('employees')
+          .upsert(
+            employee,
+            {
+              onConflict:
+                'id'
+            }
+          );
+
+      if (error) {
+        console.error(
+          'Employee insert failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchEmployees();
+
+      await logAction(
+        'EMPLOYEE_ADDED',
+        `Added employee: ${empData.name}`
+      );
+
+      return true;
+    };
+
+  const updateEmployee =
+    async (
+      empId,
+      updates
+    ) => {
+      const dbUpdates = {};
+
+      if (
+        updates.name !==
+        undefined
+      )
+        dbUpdates.name =
+          updates.name;
+
+      if (
+        updates.phone !==
+        undefined
+      )
+        dbUpdates.phone =
+          updates.phone;
+
+      if (
+        updates.email !==
+        undefined
+      )
+        dbUpdates.email =
+          updates.email;
+
+      if (
+        updates.role !==
+        undefined
+      )
+        dbUpdates.role =
+          updates.role;
+
+      if (
+        updates.category !==
+        undefined
+      )
+        dbUpdates.category =
+          updates.category;
+
+      if (
+        updates.address !==
+        undefined
+      )
+        dbUpdates.address =
+          updates.address;
+
+      if (
+        updates.joiningDate !==
+        undefined
+      )
+        dbUpdates.joining_date =
+          updates.joiningDate;
+
+      if (
+        updates.salary !==
+        undefined
+      )
+        dbUpdates.salary =
+          Number(
+            updates.salary
+          );
+
+      if (
+        updates.status !==
+        undefined
+      )
+        dbUpdates.status =
+          updates.status;
+
+      const {
+        error
+      } =
+        await supabase
+          .from('employees')
+          .update(
+            dbUpdates
+          )
+          .eq(
+            'id',
+            empId
+          );
+
+      if (error) {
+        console.error(
+          'Employee update failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchEmployees();
+
+      return true;
+    };
+
+  const deleteEmployee =
+    async empId => {
+      const {
+        error
+      } =
+        await supabase
+          .from('employees')
+          .delete()
+          .eq(
+            'id',
+            empId
+          );
+
+      if (error) {
+        console.error(
+          'Employee delete failed:',
+          error
+        );
+
+        showToast(
+          error.message,
+          'error'
+        );
+
+        return false;
+      }
+
+      await fetchEmployees();
+
+      return true;
+    };
+
+  /*
+   * ------------------------------------------------------------
+   * DATABASE BACKUP
+   * ------------------------------------------------------------
+   */
+
+  const exportDatabaseBackup =
+    () => {
+      const backup = {
+        version: '4.0',
+        timestamp:
+          new Date().toISOString(),
+        users: dbUsers,
+        products,
+        deliveries:
+          distributionList,
+        subscriptions,
+        orders,
+        logs: dbLogs
+      };
+
+      const blob =
+        new Blob(
+          [
+            JSON.stringify(
+              backup,
+              null,
+              2
+            )
+          ],
+          {
+            type:
+              'application/json'
+          }
+        );
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+      const link =
+        document.createElement(
+          'a'
+        );
+
+      link.href = url;
+
+      link.download =
+        `srivari_database_backup_${new Date()
+          .toISOString()
+          .split('T')[0]}.json`;
+
+      link.click();
+
+      URL.revokeObjectURL(
+        url
+      );
+
+      showToast(
+        'Database backup exported successfully!'
+      );
+    };
+
+  const importDatabaseBackup =
+    async jsonString => {
       try {
-        const { error } = await supabase.from('employees').upsert(formattedEmp, { onConflict: 'id' });
-        if (error) {
-          console.error("Error inserting employee into Supabase:", error);
+        const data =
+          JSON.parse(
+            jsonString
+          );
+
+        if (
+          !isSupabaseConfigured()
+        ) {
+          throw new Error(
+            'Supabase is not configured.'
+          );
         }
-      } catch (e) {
-        console.error("Supabase insert employee exception:", e);
+
+        if (
+          Array.isArray(
+            data.products
+          )
+        ) {
+          for (
+            const product of data.products
+          ) {
+            const {
+              error
+            } =
+              await supabase
+                .from(
+                  'products'
+                )
+                .upsert({
+                  id:
+                    product.id,
+                  name:
+                    product.name,
+                  category:
+                    product.category,
+                  price:
+                    Number(
+                      product.price ||
+                      0
+                    ),
+                  unit:
+                    product.unit ||
+                    '',
+                  image:
+                    product.image ||
+                    '',
+                  description:
+                    product.description ||
+                    '',
+                  in_stock:
+                    product.inStock,
+                  stock_count:
+                    Number(
+                      product.stockCount ||
+                      0
+                    ),
+                  subscription_available:
+                    product.subscriptionAvailable,
+                  nutritional_info:
+                    product.nutritionalInfo ||
+                    {}
+                });
+
+            if (error) {
+              throw error;
+            }
+          }
+        }
+
+        await fetchProducts();
+
+        showToast(
+          'Product data restored successfully.'
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          'Backup restore failed:',
+          error
+        );
+
+        showToast(
+          error?.message ||
+          'Invalid backup file.',
+          'error'
+        );
+
+        return false;
       }
-    }
+    };
 
-    db.addEmployee(empData);
-    setEmployees(prev => [
-      {
-        id: empId,
-        name: empData.name,
-        phone: empData.phone || '',
-        email: empData.email || '',
-        role: empData.role || 'Delivery Agent',
-        category: empData.category || 'Delivery Agent',
-        address: empData.address || '',
-        joiningDate: empData.joiningDate || new Date().toISOString().split('T')[0],
-        salary: Number(empData.salary || 20000),
-        status: empData.status || 'Active'
-      },
-      ...prev.filter(e => e.id !== empId)
-    ]);
+  const resetDatabaseToDefaults =
+    async () => {
+      showToast(
+        'Factory reset is disabled for the live Supabase database.',
+        'info'
+      );
+    };
 
-    logAction("EMPLOYEE_ADDED", `Added ${empData.category}: ${empData.name}`);
-    showToast(`Added ${empData.name} to Employees Database!`);
-  };
-
-  const updateEmployee = async (empId, updates) => {
-    db.updateEmployee(empId, updates);
-
-    if (isSupabaseConfigured()) {
-      try {
-        const dbUpdates = {};
-        if (updates.name !== undefined) dbUpdates.name = updates.name;
-        if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
-        if (updates.email !== undefined) dbUpdates.email = updates.email;
-        if (updates.role !== undefined) dbUpdates.role = updates.role;
-        if (updates.category !== undefined) dbUpdates.category = updates.category;
-        if (updates.address !== undefined) dbUpdates.address = updates.address;
-        if (updates.joiningDate !== undefined) dbUpdates.joining_date = updates.joiningDate;
-        if (updates.salary !== undefined) dbUpdates.salary = Number(updates.salary);
-        if (updates.status !== undefined) dbUpdates.status = updates.status;
-
-        await supabase.from('employees').update(dbUpdates).eq('id', empId);
-      } catch (e) {
-        console.error("Supabase employee update exception:", e);
-      }
-    }
-
-    setEmployees(prev => prev.map(e => e.id === empId ? { ...e, ...updates } : e));
-    logAction("EMPLOYEE_UPDATED", `Updated employee ID: ${empId}`);
-    showToast("Employee details updated in Database!");
-  };
-
-  const deleteEmployee = async (empId) => {
-    db.deleteEmployee(empId);
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('employees').delete().eq('id', empId);
-      } catch (e) {
-        console.error("Supabase delete employee exception:", e);
-      }
-    }
-
-    setEmployees(prev => prev.filter(e => e.id !== empId));
-    logAction("EMPLOYEE_DELETED", `Deleted employee ID: ${empId}`);
-    showToast("Employee record removed from Database", "info");
-  };
+  /*
+   * ------------------------------------------------------------
+   * CONTEXT
+   * ------------------------------------------------------------
+   */
 
   return (
     <AppContext.Provider
       value={{
-        db,
-        products,
-        setProducts,
-        dbUsers,
+        /*
+         * Auth
+         */
         user,
+        setUser,
         login,
         logout,
+        signUpCustomer,
+        authLoading,
+        authReady,
+
+        /*
+         * Supabase
+         */
+        supabaseActive,
+
+        /*
+         * Products
+         */
+        products,
+        setProducts,
+        updateProductStockOrPrice,
+        addProduct,
+        deleteProduct,
+
+        /*
+         * Users
+         */
+        dbUsers,
         addDbUser,
         updateDbUser,
         deleteDbUser,
+
+        /*
+         * Subscriptions
+         */
+        subscriptions,
+        fiveAmRoster,
+        createSubscription,
+        toggleSubscriptionPause,
+        updateSubscriptionQty,
+        fetchSubscriptions,
+
+        /*
+         * Orders
+         */
+        orders,
+        placeOrder,
+        placeOneTimeOrder,
+
+        /*
+         * Deliveries
+         */
+        distributionList,
+        updateDistributionStatus,
+
+        /*
+         * One-time orders
+         */
+        oneTimeOrders,
+        updateOneTimeOrderStatus,
+        updateOneTimePaymentStatus,
+
+        /*
+         * Employees
+         */
+        employees,
+        addEmployee,
+        updateEmployee,
+        deleteEmployee,
+
+        /*
+         * Contact queries
+         */
+        contactQueries,
+        submitContactQuery,
+        updateContactQueryStatus,
+        deleteContactQuery,
+
+        /*
+         * Audit
+         */
+        dbLogs,
+        logAction,
+
+        /*
+         * Cart
+         */
         cart,
         cartOpen,
         setCartOpen,
@@ -1390,37 +4240,25 @@ export const AppProvider = ({ children }) => {
         clearCart,
         cartTotal,
         cartItemCount,
+
+        /*
+         * Lab
+         */
         selectedLabProduct,
         setSelectedLabProduct,
-        subscriptions,
-        toggleSubscriptionPause,
-        updateSubscriptionQty,
-        orders,
-        placeOrder,
-        distributionList,
-        updateDistributionStatus,
-        updateProductStockOrPrice,
-        addProduct,
-        deleteProduct,
-        exportDatabaseBackup,
-        importDatabaseBackup,
-        resetDatabaseToDefaults,
-        dbLogs,
+
+        /*
+         * UI
+         */
         toast,
         showToast,
-        supabaseActive,
-        signUpCustomer,
-        contactQueries,
-        submitContactQuery,
-        updateContactQueryStatus,
-        deleteContactQuery,
-        employees,
-        addEmployee,
-        updateEmployee,
-        deleteEmployee,
-        oneTimeOrders,
-        updateOneTimeOrderStatus,
-        updateOneTimePaymentStatus
+
+        /*
+         * Backup
+         */
+        exportDatabaseBackup,
+        importDatabaseBackup,
+        resetDatabaseToDefaults
       }}
     >
       {children}
@@ -1428,4 +4266,5 @@ export const AppProvider = ({ children }) => {
   );
 };
 
-export const useApp = () => useContext(AppContext);
+export const useApp = () =>
+  useContext(AppContext);
