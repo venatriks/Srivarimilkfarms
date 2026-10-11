@@ -114,6 +114,7 @@ export const Auth = () => {
       );
 
       if (success) {
+        setPassword('');
         if (role === 'admin') {
           navigate('/admin', { replace: true });
         } else {
@@ -316,8 +317,8 @@ export const Auth = () => {
               type="button"
               onClick={handleCustomerRole}
               className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${role === 'customer'
-                  ? 'bg-white text-[#0F3E2E] shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900'
+                ? 'bg-white text-[#0F3E2E] shadow-sm'
+                : 'text-stone-600 hover:text-stone-900'
                 }`}
             >
               <User className="w-4 h-4 text-[#D4AF37]" />
@@ -328,8 +329,8 @@ export const Auth = () => {
               type="button"
               onClick={handleAdminRole}
               className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${role === 'admin'
-                  ? 'bg-[#0F3E2E] text-white shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900'
+                ? 'bg-[#0F3E2E] text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900'
                 }`}
             >
               <ShieldAlert className="w-4 h-4 text-[#D4AF37]" />
@@ -357,8 +358,8 @@ export const Auth = () => {
                 type="button"
                 onClick={() => setAuthMode('signin')}
                 className={`flex-1 py-2 text-xs font-bold text-center border-b-2 transition-all ${authMode === 'signin'
-                    ? 'border-[#0F3E2E] text-[#0F3E2E]'
-                    : 'border-transparent text-stone-400 hover:text-stone-600'
+                  ? 'border-[#0F3E2E] text-[#0F3E2E]'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
                   }`}
               >
                 Sign In
@@ -368,8 +369,8 @@ export const Auth = () => {
                 type="button"
                 onClick={() => setAuthMode('signup')}
                 className={`flex-1 py-2 text-xs font-bold text-center border-b-2 transition-all ${authMode === 'signup'
-                    ? 'border-[#0F3E2E] text-[#0F3E2E]'
-                    : 'border-transparent text-stone-400 hover:text-stone-600'
+                  ? 'border-[#0F3E2E] text-[#0F3E2E]'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
                   }`}
               >
                 Create Account

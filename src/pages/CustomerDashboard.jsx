@@ -1,217 +1,507 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Milk, Calendar, Wallet, PauseCircle, PlayCircle, Plus, Minus,
-  MapPin, Clock, RefreshCw, CheckCircle, Package, ArrowUpRight, ShieldCheck, Sparkles
+  Milk,
+  Package,
+  PauseCircle,
+  PlayCircle,
+  Plus,
+  Minus,
+  RefreshCw,
+  Wallet,
+  Clock,
+  ArrowRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().split('T')[0];
+};
+
+const getUnitLabel = (product) => {
+  if (!product?.unit) return 'Liter';
+  return String(product.unit).replace(/^1\s*/i, '').trim() || 'Liter';
+};
 
 export const CustomerDashboard = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, subscriptions, toggleSubscriptionPause, updateSubscriptionQty, orders, showToast } = useApp();
 
-  const queryParams = new URLSearchParams(location.search);
-  const activeTabParam = queryParams.get('tab');
+  const {
+    user,
+    products = [],
+    subscriptions = [],
+    orders = [],
+    showToast,
+    toggleSubscriptionPause,
+    updateSubscriptionQty,
+  } = useApp();
 
-  useEffect(() => {
-    if (!user) {
-      showToast("Please log in to view your subscriptions and delivery settings.", "info");
-      navigate('/login', { state: { from: location } });
+  const [walletAmount, setWalletAmount] = useState(
+    Number(user?.walletBalance ?? 0)
+  );
+  const [selectedRecharge, setSelectedRecharge] = useState(1000);
+  const [deliveryInstructions, setDeliveryInstructions] = useState(
+    'Leave inside insulated doorstep bag outside Flat 402'
+  );
+  const [savingSubscriptionId, setSavingSubscriptionId] = useState(null);
+
+  /*
+   * AppContext intentionally keeps the complete Supabase subscription/order
+   * collections available to the application. The customer dashboard must
+   * filter them to the authenticated customer before rendering.
+   */
+  const customerSubscriptions = useMemo(() => {
+    if (!user?.id) return [];
+
+    return subscriptions.filter(
+      (subscription) => String(subscription.userId || '') === String(user.id)
+    );
+  }, [subscriptions, user?.id]);
+
+  const customerOrders = useMemo(() => {
+    if (!user?.id) return [];
+
+    return orders
+      .filter(
+        (order) => String(order.userId || '') === String(user.id)
+      )
+      .sort((a, b) => {
+        const aTime = new Date(a.createdAt || a.date || 0).getTime();
+        const bTime = new Date(b.createdAt || b.date || 0).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, 5);
+  }, [orders, user?.id]);
+
+  const getProductForSubscription = (subscription) =>
+    products.find(
+      (product) => String(product.id) === String(subscription.productId)
+    );
+
+  const handlePauseResume = async (subscription) => {
+    if (!user?.id || savingSubscriptionId) return;
+
+    const nextStatus =
+      subscription.status === 'Active' ? 'Paused' : 'Active';
+
+    setSavingSubscriptionId(subscription.id);
+
+    try {
+      if (isSupabaseConfigured()) {
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({ status: nextStatus })
+          .eq('id', subscription.id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Subscription status update error:', error);
+          showToast(
+            error.message || 'Unable to update subscription status.',
+            'error'
+          );
+          return;
+        }
+      }
+
+      // Keep the local AppContext state in sync immediately.
+      toggleSubscriptionPause(subscription.id);
+
+      showToast(
+        nextStatus === 'Active'
+          ? 'Subscription resumed successfully.'
+          : 'Delivery paused successfully.'
+      );
+    } catch (error) {
+      console.error('Subscription status update exception:', error);
+      showToast('Unable to update your subscription right now.', 'error');
+    } finally {
+      setSavingSubscriptionId(null);
     }
-  }, [user, navigate, location]);
+  };
 
-  const [wallet, setWallet] = useState(user?.walletBalance || 2450);
-  const [rechargeAmount, setRechargeAmount] = useState(1000);
-  const [deliveryInstructions, setDeliveryInstructions] = useState("Leave inside insulated doorstep bag outside Flat 402");
+  const handleQuantityChange = async (subscription, newQuantity) => {
+    if (!user?.id || savingSubscriptionId) return;
 
-  if (!user) return null;
+    const quantity = Math.max(1, Number(newQuantity) || 1);
+    if (quantity === Number(subscription.quantity)) return;
+
+    const currentQuantity = Math.max(1, Number(subscription.quantity) || 1);
+    const currentDailyAmount = Number(subscription.pricePerDay || 0);
+
+    // Preserve the subscription's current per-unit rate instead of
+    // hard-coding a milk price in the dashboard.
+    const unitPrice =
+      currentDailyAmount > 0
+        ? currentDailyAmount / currentQuantity
+        : Number(getProductForSubscription(subscription)?.price || 0);
+
+    const newDailyAmount = Number((unitPrice * quantity).toFixed(2));
+
+    setSavingSubscriptionId(subscription.id);
+
+    try {
+      if (isSupabaseConfigured()) {
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({
+            quantity,
+            price_per_day: newDailyAmount,
+          })
+          .eq('id', subscription.id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Subscription quantity update error:', error);
+          showToast(
+            error.message || 'Unable to update subscription quantity.',
+            'error'
+          );
+          return;
+        }
+      }
+
+      // AppContext updates its local representation immediately.
+      updateSubscriptionQty(subscription.id, quantity);
+
+      showToast(`Subscription updated to ${quantity} Liter/day.`);
+    } catch (error) {
+      console.error('Subscription quantity update exception:', error);
+      showToast('Unable to update subscription quantity right now.', 'error');
+    } finally {
+      setSavingSubscriptionId(null);
+    }
+  };
 
   const handleRecharge = () => {
-    setWallet(prev => prev + rechargeAmount);
-    showToast(`Added ₹${rechargeAmount} to your Srivari Milk Wallet!`);
+    // Wallet recharge remains a UI action until a secure wallet-payment RPC
+    // / payment gateway is connected. Do not pretend that money was charged.
+    setWalletAmount((current) => current + selectedRecharge);
+    showToast(
+      `₹${selectedRecharge} recharge selected. Connect your payment gateway to process the payment.`,
+      'info'
+    );
   };
 
-  const handleSaveInstructions = (e) => {
-    e.preventDefault();
-    showToast("Delivery instructions updated for your 5 AM runner!");
+  const handleInstructionsSubmit = (event) => {
+    event.preventDefault();
+    showToast('Delivery instructions updated for your 5 AM runner.');
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
-
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-[#0F3E2E] to-[#18523f] text-white p-8 rounded-3xl border border-[#D4AF37]/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <span className="px-3 py-1 rounded-full bg-white/10 text-[#D4AF37] text-xs font-bold uppercase tracking-wider border border-white/20 inline-flex items-center space-x-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Active Subscriber</span>
-          </span>
-          <h1 className="font-serif-display text-3xl font-bold">
-            Welcome back, {user?.name || "Anita Sharma"}!
+  if (!user) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="bg-white rounded-3xl border border-[#0F3E2E]/10 shadow-md p-8 text-center">
+          <h1 className="font-serif-display text-2xl font-bold text-[#0F3E2E]">
+            Customer Dashboard
           </h1>
-          <p className="text-xs text-emerald-100/90">
-            {user?.address || "Flat 402, Green Glen Layout, Bellandur, Bengaluru"}
+          <p className="text-sm text-stone-500 mt-2">
+            Please sign in to view your milk subscriptions and delivery orders.
           </p>
-        </div>
-
-        {/* Wallet Quick Balance Card */}
-        <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20 text-right w-full md:w-auto flex items-center justify-between md:justify-end space-x-6">
-          <div>
-            <span className="text-xs text-emerald-200 block">Srivari Wallet Balance</span>
-            <span className="text-3xl font-bold font-serif-display text-white">₹{wallet}</span>
-          </div>
           <button
-            onClick={handleRecharge}
-            className="px-4 py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-amber-400 transition-colors shadow-md"
+            type="button"
+            onClick={() => navigate('/login')}
+            className="mt-6 px-6 py-3 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold uppercase tracking-wider"
           >
-            + Recharge
+            Sign In
           </button>
         </div>
       </div>
+    );
+  }
 
-      {/* Main Grid: Subscriptions & Wallet */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        {/* Left 2 Cols: Active Subscriptions Manager */}
-        <div className="lg:col-span-2 space-y-6">
-
-          <div className="flex items-center justify-between">
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        {/* LEFT COLUMN */}
+        <div className="lg:col-span-2 space-y-10">
+          {/* Subscription heading */}
+          <div className="flex items-center justify-between gap-4">
             <h2 className="font-serif-display text-2xl font-bold text-[#0F3E2E] flex items-center space-x-2">
               <Milk className="w-6 h-6 text-[#D4AF37]" />
               <span>Your Daily Milk Subscriptions</span>
             </h2>
-            <span className="text-xs text-stone-500 font-medium">Next Dispatch: Tomorrow, 5:30 AM</span>
+
+            <span className="text-xs text-stone-500 font-medium whitespace-nowrap">
+              Next Dispatch: Tomorrow, 5:30 AM
+            </span>
           </div>
 
-          {subscriptions.map((sub) => (
-            <div
-              key={sub.id}
-              className={`bg-white rounded-3xl p-6 border shadow-md transition-all space-y-6 ${
-                sub.status === 'Active' ? 'border-[#0F3E2E]/20' : 'border-amber-300 bg-amber-50/40'
-              }`}
-            >
+          {/* REAL SUPABASE SUBSCRIPTIONS */}
+          {customerSubscriptions.length > 0 ? (
+            customerSubscriptions.map((subscription) => {
+              const product = getProductForSubscription(subscription);
+              const productName =
+                subscription.productName ||
+                product?.name ||
+                'Daily Milk Subscription';
 
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+              const unit = getUnitLabel(product);
+              const quantity = Math.max(
+                1,
+                Number(subscription.quantity || 1)
+              );
+              const isActive = subscription.status === 'Active';
+              const bottlesExchanged = Number(
+                subscription.bottlesExchanged || 0
+              );
+              const pricePerDay = Number(
+                subscription.pricePerDay || 0
+              );
+
+              return (
+                <div
+                  key={subscription.id}
+                  className={`bg-white rounded-3xl p-6 border shadow-md transition-all space-y-6 ${isActive
+                      ? 'border-[#0F3E2E]/20'
+                      : 'border-amber-300 bg-amber-50/40'
+                    }`}
+                >
+                  {/* Subscription title + pause/resume */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+                    <div>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full ${isActive
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-200 text-amber-900'
+                          }`}
+                      >
+                        {isActive
+                          ? 'Active Dispatch'
+                          : 'Vacation Paused'}
+                      </span>
+
+                      <h3 className="font-serif-display text-xl font-bold text-[#0F3E2E] mt-1">
+                        {productName}
+                      </h3>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={savingSubscriptionId === subscription.id}
+                      onClick={() => handlePauseResume(subscription)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 ${isActive
+                          ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                          : 'bg-[#0F3E2E] text-white hover:bg-[#18523f]'
+                        }`}
+                    >
+                      {isActive ? (
+                        <>
+                          <PauseCircle className="w-4 h-4" />
+                          <span>
+                            {savingSubscriptionId === subscription.id
+                              ? 'Saving...'
+                              : 'Pause Delivery'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <PlayCircle className="w-4 h-4 text-[#D4AF37]" />
+                          <span>
+                            {savingSubscriptionId === subscription.id
+                              ? 'Saving...'
+                              : 'Resume Delivery'}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Quantity / delivery / price */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-2">
+                      <span className="text-stone-500 font-medium">
+                        Daily Quantity
+                      </span>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          disabled={
+                            savingSubscriptionId === subscription.id ||
+                            quantity <= 1
+                          }
+                          onClick={() =>
+                            handleQuantityChange(
+                              subscription,
+                              quantity - 1
+                            )
+                          }
+                          className="p-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 disabled:opacity-40"
+                          aria-label="Decrease daily quantity"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+
+                        <span className="text-lg font-bold text-[#0F3E2E]">
+                          {quantity} {unit}
+                          {quantity !== 1 ? 's' : ''}
+                        </span>
+
+                        <button
+                          type="button"
+                          disabled={
+                            savingSubscriptionId === subscription.id
+                          }
+                          onClick={() =>
+                            handleQuantityChange(
+                              subscription,
+                              quantity + 1
+                            )
+                          }
+                          className="p-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 disabled:opacity-40"
+                          aria-label="Increase daily quantity"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
+                      <span className="text-stone-500 font-medium">
+                        Morning Delivery Slot
+                      </span>
+
+                      <p className="font-bold text-[#0F3E2E] text-sm">
+                        {subscription.deliverySlot ||
+                          '5:30 AM - 6:30 AM'}
+                      </p>
+
+                      <p className="text-[10px] text-emerald-700">
+                        Glass bottle doorstep drop
+                      </p>
+                    </div>
+
+                    <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
+                      <span className="text-stone-500 font-medium">
+                        Daily Amount
+                      </span>
+
+                      <p className="font-bold text-[#0F3E2E] text-sm">
+                        ₹{pricePerDay.toFixed(0)} / day
+                      </p>
+
+                      <p className="text-[10px] text-stone-500">
+                        Auto-deducted from wallet
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bottle exchange */}
+                  <div className="bg-amber-50 p-4 rounded-2xl border border-[#D4AF37]/30 flex items-center justify-between text-xs">
+                    <div className="flex items-center space-x-3">
+                      <RefreshCw className="w-5 h-5 text-[#D4AF37] shrink-0" />
+
+                      <div>
+                        <span className="font-bold text-[#0F3E2E]">
+                          Glass Bottles Exchanged:{' '}
+                          {bottlesExchanged} Bottles
+                        </span>
+
+                        <p className="text-[11px] text-stone-600">
+                          Total Cashback Earned: ₹
+                          {bottlesExchanged * 5}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            /* IMPORTANT: the left section no longer collapses when
+               Supabase has zero subscription rows. */
+            <div className="bg-white rounded-3xl p-6 border border-[#0F3E2E]/10 shadow-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
                 <div>
-                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
-                    sub.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-200 text-amber-900'
-                  }`}>
-                    {sub.status === 'Active' ? 'Active Dispatch' : 'Vacation Paused'}
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-100 text-amber-900">
+                    No Active Subscription
                   </span>
-                  <h3 className="font-serif-display text-xl font-bold text-[#0F3E2E] mt-1">
-                    {sub.productName}
+
+                  <h3 className="font-serif-display text-xl font-bold text-[#0F3E2E] mt-2">
+                    Start Your Daily Milk Subscription
                   </h3>
+
+                  <p className="text-sm text-stone-500 mt-2 max-w-xl">
+                    Choose your daily quantity and morning delivery schedule
+                    to receive fresh milk at your doorstep.
+                  </p>
                 </div>
 
-                {/* Pause / Resume Action */}
                 <button
-                  onClick={() => toggleSubscriptionPause(sub.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center space-x-2 ${
-                    sub.status === 'Active'
-                      ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                      : 'bg-[#0F3E2E] text-white hover:bg-[#18523f]'
-                  }`}
+                  type="button"
+                  onClick={() => navigate('/products')}
+                  className="shrink-0 px-5 py-3 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-amber-400 transition-all flex items-center justify-center space-x-2"
                 >
-                  {sub.status === 'Active' ? (
-                    <>
-                      <PauseCircle className="w-4 h-4" />
-                      <span>Pause Delivery</span>
-                    </>
-                  ) : (
-                    <>
-                      <PlayCircle className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Resume Delivery</span>
-                    </>
-                  )}
+                  <span>Subscribe Now</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* Quantity & Details Control */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-
-                {/* Quantity modifier */}
-                <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-2">
-                  <span className="text-stone-500 font-medium">Daily Quantity</span>
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => updateSubscriptionQty(sub.id, Math.max(1, sub.quantity - 1))}
-                      className="p-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-lg font-bold text-[#0F3E2E]">
-                      {sub.quantity} {sub.unit}s
-                    </span>
-                    <button
-                      onClick={() => updateSubscriptionQty(sub.id, sub.quantity + 1)}
-                      className="p-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Time slot */}
-                <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
-                  <span className="text-stone-500 font-medium">Morning Delivery Slot</span>
-                  <p className="font-bold text-[#0F3E2E] text-sm">{sub.deliverySlot}</p>
-                  <p className="text-[10px] text-emerald-700">Glass bottle doorstep drop</p>
-                </div>
-
-                {/* Price calculation */}
-                <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
-                  <span className="text-stone-500 font-medium">Daily Amount</span>
-                  <p className="font-bold text-[#0F3E2E] text-sm">₹{sub.pricePerDay} / day</p>
-                  <p className="text-[10px] text-stone-500">Auto-deducted from wallet</p>
-                </div>
-
-              </div>
-
-              {/* Glass Bottle Recycling Tracker */}
-              <div className="bg-amber-50 p-4 rounded-2xl border border-[#D4AF37]/30 flex items-center justify-between text-xs">
-                <div className="flex items-center space-x-3">
-                  <RefreshCw className="w-5 h-5 text-[#D4AF37] shrink-0" />
-                  <div>
-                    <span className="font-bold text-[#0F3E2E]">Glass Bottles Exchanged: {sub.bottlesExchanged} Bottles</span>
-                    <p className="text-[11px] text-stone-600">Total Cashback Earned: ₹{(sub.bottlesExchanged * 5)}</p>
-                  </div>
-                </div>
-              </div>
-
             </div>
-          ))}
+          )}
 
-          {/* Order History */}
+          {/* Recent orders */}
           <div className="bg-white rounded-3xl p-6 border border-[#0F3E2E]/10 shadow-md space-y-4">
             <h3 className="font-serif-display text-xl font-bold text-[#0F3E2E] flex items-center space-x-2">
               <Package className="w-5 h-5 text-[#D4AF37]" />
               <span>Recent Delivery Orders</span>
             </h3>
 
-            <div className="divide-y divide-stone-100 text-xs">
-              {orders.map((ord) => (
-                <div key={ord.id} className="py-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-[#0F3E2E]">{ord.id}</span>
-                    <span className="text-stone-500 text-[11px] block">{ord.date} • {ord.deliverySlot}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-[#0F3E2E]">₹{ord.totalAmount}</span>
-                    <span className="text-emerald-700 text-[10px] font-bold block">{ord.status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+            {customerOrders.length > 0 ? (
+              <div className="divide-y divide-stone-100 text-xs">
+                {customerOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="py-3 flex items-center justify-between gap-4"
+                  >
+                    <div>
+                      <span className="font-bold text-[#0F3E2E]">
+                        {order.id}
+                      </span>
 
+                      <span className="text-stone-500 text-[11px] block">
+                        {formatDate(order.createdAt || order.date)} •{' '}
+                        {order.deliverySlot || '5:30 AM - 6:30 AM'}
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="font-bold text-[#0F3E2E]">
+                        ₹{Number(order.totalAmount || 0).toFixed(0)}
+                      </span>
+
+                      <span className="text-emerald-700 text-[10px] font-bold block">
+                        {order.status || 'Confirmed'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-sm text-stone-500">
+                  No delivery orders yet.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/products')}
+                  className="mt-4 text-xs font-bold text-[#0F3E2E] hover:text-[#18523f]"
+                >
+                  Explore farm products →
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right Col: Wallet Recharge & Delivery Preferences */}
+        {/* RIGHT COLUMN */}
         <div className="space-y-6">
-
-          {/* Quick Wallet Top Up Card */}
+          {/* Wallet */}
           <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-4">
             <h3 className="font-serif-display text-lg font-bold text-[#0F3E2E] flex items-center space-x-2">
               <Wallet className="w-5 h-5 text-[#D4AF37]" />
@@ -219,47 +509,51 @@ export const CustomerDashboard = () => {
             </h3>
 
             <div className="grid grid-cols-3 gap-2">
-              {[500, 1000, 2000].map((amt) => (
+              {[500, 1000, 2000].map((amount) => (
                 <button
-                  key={amt}
-                  onClick={() => setRechargeAmount(amt)}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                    rechargeAmount === amt
+                  key={amount}
+                  type="button"
+                  onClick={() => setSelectedRecharge(amount)}
+                  className={`py-2 rounded-xl text-xs font-bold transition-all ${selectedRecharge === amount
                       ? 'bg-[#0F3E2E] text-white shadow-sm'
                       : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                  }`}
+                    }`}
                 >
-                  +₹{amt}
+                  +₹{amount}
                 </button>
               ))}
             </div>
 
             <button
+              type="button"
               onClick={handleRecharge}
               className="w-full py-3 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-amber-400 transition-all shadow-md"
             >
-              Add ₹{rechargeAmount} to Wallet
+              Add ₹{selectedRecharge} to Wallet
             </button>
 
             <p className="text-[11px] text-stone-500 text-center">
-              Wallet money never expires. Auto-refills your morning milk subscription seamlessly!
+              Current wallet balance: ₹{walletAmount.toFixed(0)}
             </p>
           </div>
 
-          {/* Delivery Instructions */}
+          {/* Delivery note */}
           <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-4">
             <h3 className="font-serif-display text-lg font-bold text-[#0F3E2E] flex items-center space-x-2">
               <Clock className="w-5 h-5 text-[#D4AF37]" />
               <span>5 AM Delivery Note</span>
             </h3>
 
-            <form onSubmit={handleSaveInstructions} className="space-y-3">
+            <form onSubmit={handleInstructionsSubmit} className="space-y-3">
               <textarea
                 rows={3}
                 value={deliveryInstructions}
-                onChange={(e) => setDeliveryInstructions(e.target.value)}
+                onChange={(event) =>
+                  setDeliveryInstructions(event.target.value)
+                }
                 className="w-full p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs text-[#0F3E2E] focus:outline-none focus:border-[#0F3E2E]"
               />
+
               <button
                 type="submit"
                 className="w-full py-2.5 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-all"
@@ -268,11 +562,10 @@ export const CustomerDashboard = () => {
               </button>
             </form>
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 };
+
+export default CustomerDashboard;

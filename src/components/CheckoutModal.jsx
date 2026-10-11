@@ -23,6 +23,7 @@ export const CheckoutModal = () => {
     cartTotal,
     user,
     placeOrder,
+    createSubscription,
     showToast,
     clearCart
   } = useApp();
@@ -65,10 +66,6 @@ export const CheckoutModal = () => {
 
     setSubmitError('');
 
-    // -----------------------------
-    // Basic validation
-    // -----------------------------
-
     if (!customerName.trim()) {
       showToast('Please enter your full name for delivery', 'error');
       return;
@@ -94,140 +91,131 @@ export const CheckoutModal = () => {
       return;
     }
 
-    // -----------------------------
-    // Guest cannot purchase
-    // subscription items
-    // -----------------------------
+    const subscriptionItems = cart.filter(
+      (item) => item.buyType === 'subscription'
+    );
+    const oneTimeItems = cart.filter(
+      (item) => item.buyType !== 'subscription'
+    );
 
-    if (hasSubscriptionItem && !user) {
+    if (subscriptionItems.length > 0 && !user) {
       showToast(
-        'Subscriptions require an account. Please sign in or convert cart items to one-time delivery.',
+        'Subscriptions require an account. Please sign in before starting a subscription.',
         'error'
       );
       return;
     }
-
-    // -----------------------------
-    // Convert payment method
-    // -----------------------------
 
     const formattedPaymentMethod =
       paymentMethod === 'wallet'
         ? 'Srivari Wallet'
         : paymentMethod === 'upi'
           ? 'UPI Instant Pay'
-          : 'Cash on Delivery'
-    // -----------------------------
-    // Prepare items for Supabase RPC
-    // -----------------------------
-    //
-    // IMPORTANT:
-    // We send product_id + quantity only.
-    //
-    // The database function will:
-    // - verify the product exists
-    // - verify stock
-    // - read the trusted price
-    // - calculate the total
-    // - create the order
-    //
-    // This prevents the browser from changing
-    // the order total or product price.
-    // -----------------------------
-
-    const rpcItems = cart.map((item) => ({
-      product_id: String(
-        item.productId ||
-        item.product_id ||
-        item.id
-      ),
-      quantity: Number(item.quantity || 1)
-    }));
-
-    // Validate product IDs before sending
-    const invalidItem = rpcItems.find(
-      (item) =>
-        !item.product_id ||
-        !Number.isInteger(item.quantity) ||
-        item.quantity <= 0
-    );
-
-    if (invalidItem) {
-      showToast(
-        'One or more cart items are invalid. Please refresh your cart and try again.',
-        'error'
-      );
-      return;
-    }
+          : 'Cash on Delivery';
 
     try {
       setSubmitting(true);
 
-      // =====================================================
-      // GUEST / ONE-TIME ORDER
-      // =====================================================
-      //
-      // All one-time orders go through the secure Supabase RPC.
-      // No direct INSERT into one_time_orders is performed here.
-      // =====================================================
+      const createdSubscriptions = [];
 
-      const { data, error } = await supabase.rpc(
-        'create_one_time_order',
-        {
-          p_customer_name: customerName.trim(),
-          p_customer_email: customerEmail.trim().toLowerCase(),
-          p_customer_phone: phone.trim(),
-          p_address: address.trim(),
-          p_items: rpcItems,
-          p_delivery_slot: deliverySlot,
-          p_instructions: instructions.trim() || null,
-          p_payment_method: formattedPaymentMethod
+      // -----------------------------------------------------
+      // Create real Supabase subscription rows for subscription items
+      // -----------------------------------------------------
+      for (const item of subscriptionItems) {
+        const createdSubscription = await createSubscription({
+          item,
+          deliverySlot
+        });
+
+        if (!createdSubscription) {
+          throw new Error(
+            'Unable to create the milk subscription. Please check the error message and try again.'
+          );
         }
-      );
 
-      if (error) {
-        console.error('One-time order creation failed:', error);
-        throw error;
+        createdSubscriptions.push(createdSubscription);
       }
 
-      // Supabase returns the created order row.
-      const createdOrder = Array.isArray(data) ? data[0] : data;
-
-      console.log('One-time order created successfully:', createdOrder);
-
       // -----------------------------------------------------
-      // Clear the shopping cart
+      // Create a secure one-time order only for one-time items
       // -----------------------------------------------------
+      let createdOrder = null;
+
+      if (oneTimeItems.length > 0) {
+        const rpcItems = oneTimeItems.map((item) => ({
+          product_id: String(
+            item.productId ||
+            item.product_id ||
+            item.id
+          ),
+          quantity: Number(item.quantity || 1)
+        }));
+
+        const invalidItem = rpcItems.find(
+          (item) =>
+            !item.product_id ||
+            !Number.isInteger(item.quantity) ||
+            item.quantity <= 0
+        );
+
+        if (invalidItem) {
+          throw new Error(
+            'One or more one-time cart items are invalid. Please refresh your cart and try again.'
+          );
+        }
+
+        const { data, error } = await supabase.rpc(
+          'create_one_time_order',
+          {
+            p_customer_name: customerName.trim(),
+            p_customer_email: customerEmail.trim().toLowerCase(),
+            p_customer_phone: phone.trim(),
+            p_address: address.trim(),
+            p_items: rpcItems,
+            p_delivery_slot: deliverySlot,
+            p_instructions: instructions.trim() || null,
+            p_payment_method: formattedPaymentMethod
+          }
+        );
+
+        if (error) {
+          console.error('One-time order creation failed:', error);
+          throw error;
+        }
+
+        createdOrder = Array.isArray(data) ? data[0] : data;
+      }
 
       if (typeof clearCart === 'function') {
         clearCart();
       }
 
-      // -----------------------------------------------------
-      // Close checkout
-      // -----------------------------------------------------
-
       setCheckoutOpen(false);
 
-      // -----------------------------------------------------
-      // Success message
-      // -----------------------------------------------------
-
-      const orderId = createdOrder?.id || 'Order';
-
-      showToast(
-        `${orderId} confirmed successfully! Your order will be prepared for morning delivery.`,
-        'success'
-      );
+      if (createdSubscriptions.length > 0 && createdOrder) {
+        showToast(
+          `${createdSubscriptions.length} subscription${createdSubscriptions.length > 1 ? 's' : ''} and ${createdOrder.id || 'one-time order'} confirmed successfully!`,
+          'success'
+        );
+      } else if (createdSubscriptions.length > 0) {
+        showToast(
+          `Your milk subscription is active! Delivery starts ${deliverySlot}.`,
+          'success'
+        );
+      } else if (createdOrder) {
+        showToast(
+          `${createdOrder.id || 'Order'} confirmed successfully! Your order will be prepared for morning delivery.`,
+          'success'
+        );
+      }
     } catch (error) {
       console.error('Checkout error:', error);
 
       const message =
         error?.message ||
-        'Unable to place your order. Please try again.';
+        'Unable to complete checkout. Please try again.';
 
       setSubmitError(message);
-
       showToast(message, 'error');
     } finally {
       setSubmitting(false);
