@@ -288,7 +288,7 @@ export const Auth = () => {
           <div className="w-16 h-16 rounded-full bg-white border-2 border-[#D4AF37] overflow-hidden mx-auto mb-3 shadow-md">
 
             <img
-              src={`${import.meta.env.BASE_URL}images/logo.png`}
+              src={`${import.meta.env.BASE_URL}images/logo_Main.png`}
               alt="Srivari Milk Farms Logo"
               className="w-full h-full object-cover"
             />

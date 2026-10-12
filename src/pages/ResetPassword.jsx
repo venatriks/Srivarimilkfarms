@@ -110,7 +110,7 @@ export const ResetPassword = () => {
         <div className="bg-[#0F3E2E] text-white p-8 text-center relative border-b border-[#D4AF37]/30">
           <div className="w-16 h-16 rounded-full bg-white border-2 border-[#D4AF37] overflow-hidden mx-auto mb-3 shadow-md flex items-center justify-center">
             <img
-              src={`${import.meta.env.BASE_URL}images/logo.png`}
+              src={`${import.meta.env.BASE_URL}images/logo_Main.png`}
               alt="Srivari Milk Farms Logo"
               className="w-full h-full object-cover"
             />

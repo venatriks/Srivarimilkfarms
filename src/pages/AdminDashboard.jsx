@@ -324,8 +324,8 @@ export const AdminDashboard = () => {
       <div className="bg-[#042B1B] text-white p-8 rounded-3xl border border-[#DFB33F]/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2">
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border inline-flex items-center space-x-1.5 ${supabaseActive
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
-              : 'bg-[#DFB33F]/20 text-[#DFB33F] border-[#DFB33F]'
+            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
+            : 'bg-[#DFB33F]/20 text-[#DFB33F] border-[#DFB33F]'
             }`}>
             <Database className="w-3.5 h-3.5 text-[#DFB33F]" />
             <span>{supabaseActive ? 'Supabase Live Database Connected' : 'Local Database Control Center'}</span>
@@ -419,8 +419,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('distribution')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'distribution'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <Truck className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -430,8 +430,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('subscriptions')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'subscriptions'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <Milk className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -441,8 +441,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('users')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'users'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <Users className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -452,8 +452,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('products')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'products'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <Package className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -463,8 +463,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('onetime-orders')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'onetime-orders'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <ShoppingBag className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -474,8 +474,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('queries')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'queries'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <MessageSquare className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -485,8 +485,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('employees')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'employees'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <Briefcase className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -496,8 +496,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('database')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'database'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <Database className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -507,8 +507,8 @@ export const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('add')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'add'
-                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
-                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
               }`}
           >
             <Plus className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
@@ -576,10 +576,10 @@ export const AdminDashboard = () => {
                     <td className="py-4 px-4 font-bold text-amber-800">{item.bottleReturnCount} Glass Bottles</td>
                     <td className="py-4 px-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${item.status === 'Delivered'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : item.status === 'In Transit'
-                            ? 'bg-amber-100 text-amber-900'
-                            : 'bg-stone-100 text-stone-600'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : item.status === 'In Transit'
+                          ? 'bg-amber-100 text-amber-900'
+                          : 'bg-stone-100 text-stone-600'
                         }`}>
                         {item.status}
                       </span>
@@ -1062,8 +1062,8 @@ export const AdminDashboard = () => {
                           value={q.status || 'Pending'}
                           onChange={(e) => updateContactQueryStatus(q.id, e.target.value)}
                           className={`px-3 py-1.5 border rounded-xl text-xs font-bold focus:outline-none shadow-xs ${q.status === 'In Progress'
-                              ? 'bg-amber-50 text-amber-900 border-amber-300'
-                              : 'bg-stone-100 text-stone-800 border-stone-300'
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                            : 'bg-stone-100 text-stone-800 border-stone-300'
                             }`}
                         >
                           <option value="Pending">Pending</option>
@@ -1172,8 +1172,8 @@ export const AdminDashboard = () => {
                 <button
                   onClick={() => setEmpCategoryFilter('All')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${empCategoryFilter === 'All'
-                      ? 'bg-[#042B1B] text-white shadow-sm'
-                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-[#042B1B] text-white shadow-sm'
+                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
                     }`}
                 >
                   All Staff ({employees ? employees.length : 0})
@@ -1182,8 +1182,8 @@ export const AdminDashboard = () => {
                 <button
                   onClick={() => setEmpCategoryFilter('Delivery Agent')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${empCategoryFilter === 'Delivery Agent'
-                      ? 'bg-blue-900 text-white shadow-sm'
-                      : 'bg-blue-50 text-blue-800 hover:bg-blue-100'
+                    ? 'bg-blue-900 text-white shadow-sm'
+                    : 'bg-blue-50 text-blue-800 hover:bg-blue-100'
                     }`}
                 >
                   <Truck className="w-3.5 h-3.5" />
@@ -1193,8 +1193,8 @@ export const AdminDashboard = () => {
                 <button
                   onClick={() => setEmpCategoryFilter('Internal Staff')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${empCategoryFilter === 'Internal Staff'
-                      ? 'bg-amber-800 text-white shadow-sm'
-                      : 'bg-amber-50 text-amber-900 hover:bg-amber-100'
+                    ? 'bg-amber-800 text-white shadow-sm'
+                    : 'bg-amber-50 text-amber-900 hover:bg-amber-100'
                     }`}
                 >
                   <Briefcase className="w-3.5 h-3.5" />
@@ -1241,8 +1241,8 @@ export const AdminDashboard = () => {
                         <td className="py-4 px-4 font-bold text-[#042B1B]">
                           <div className="flex items-center space-x-3">
                             <div className={`w-9 h-9 rounded-xl font-bold flex items-center justify-center shrink-0 ${emp.category === 'Delivery Agent'
-                                ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                : 'bg-amber-100 text-amber-900 border border-amber-200'
+                              ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                              : 'bg-amber-100 text-amber-900 border border-amber-200'
                               }`}>
                               {emp.name.charAt(0).toUpperCase()}
                             </div>
@@ -1256,8 +1256,8 @@ export const AdminDashboard = () => {
 
                         <td className="py-4 px-4">
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide inline-flex items-center space-x-1 border mb-1 ${emp.category === 'Delivery Agent'
-                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                              : 'bg-amber-50 text-amber-900 border-amber-200'
+                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                            : 'bg-amber-50 text-amber-900 border-amber-200'
                             }`}>
                             {emp.category === 'Delivery Agent' ? <Truck className="w-3 h-3" /> : <Briefcase className="w-3 h-3" />}
                             <span>{emp.category}</span>
@@ -1292,8 +1292,8 @@ export const AdminDashboard = () => {
                             value={emp.status || 'Active'}
                             onChange={(e) => updateEmployee(emp.id, { status: e.target.value })}
                             className={`px-3 py-1.5 border rounded-xl text-xs font-bold focus:outline-none shadow-xs ${emp.status === 'Active'
-                                ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                                : 'bg-red-50 text-red-800 border-red-300'
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                              : 'bg-red-50 text-red-800 border-red-300'
                               }`}
                           >
                             <option value="Active">Active</option>
@@ -1577,7 +1577,7 @@ export const AdminDashboard = () => {
             <div className="bg-[#042B1B] text-white p-6 flex items-center justify-between border-b border-[#DFB33F]/30 print:hidden">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden border border-[#DFB33F] bg-white shrink-0">
-                  <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
+                  <img src={`${import.meta.env.BASE_URL}images/logo_Main.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className="font-serif-display text-xl font-bold">5 AM Dispatch Manifest Preview</h3>
@@ -1633,7 +1633,7 @@ export const AdminDashboard = () => {
 
               <div className="border-b-2 border-[#042B1B] pb-4 flex flex-row items-start justify-between">
                 <div className="flex items-center space-x-4">
-                  <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Srivari Milk Farms Logo" className="w-16 h-16 object-cover rounded-full border border-amber-500" />
+                  <img src={`${import.meta.env.BASE_URL}images/logo_Main.png`} alt="Srivari Milk Farms Logo" className="w-16 h-16 object-cover rounded-full border border-amber-500" />
                   <div>
                     <h1 className="text-2xl font-bold text-[#042B1B] tracking-tight font-serif-display">
                       SRIVARI MILK FARMS
@@ -2155,8 +2155,8 @@ export const AdminDashboard = () => {
                       <td className="py-4 px-4">
                         <div className="space-y-1">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block ${ord.paymentStatus === 'Paid'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : 'bg-amber-100 text-amber-900 border border-amber-300'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-amber-100 text-amber-900 border border-amber-300'
                             }`}>
                             {ord.paymentStatus || 'Paid'}
                           </span>
@@ -2176,14 +2176,14 @@ export const AdminDashboard = () => {
                           value={ord.status || 'Confirmed'}
                           onChange={(e) => updateOneTimeOrderStatus(ord.id, e.target.value)}
                           className={`px-2.5 py-1 rounded-xl text-xs font-bold focus:outline-none border cursor-pointer ${ord.status === 'Delivered'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                              : ord.status === 'In Transit'
-                                ? 'bg-blue-50 text-blue-800 border-blue-300'
-                                : ord.status === 'Processing'
-                                  ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                  : ord.status === 'Cancelled'
-                                    ? 'bg-red-50 text-red-800 border-red-300'
-                                    : 'bg-stone-50 text-stone-800 border-stone-300'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            : ord.status === 'In Transit'
+                              ? 'bg-blue-50 text-blue-800 border-blue-300'
+                              : ord.status === 'Processing'
+                                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                : ord.status === 'Cancelled'
+                                  ? 'bg-red-50 text-red-800 border-red-300'
+                                  : 'bg-stone-50 text-stone-800 border-stone-300'
                             }`}
                         >
                           <option value="Confirmed">Confirmed</option>
