@@ -123,7 +123,7 @@ export const Footer = () => {
               </div>
               <div className="flex items-center space-x-2.5">
                 <Phone className="w-4 h-4 text-[#DFB33F] shrink-0" />
-                <span>+91 7022776637 / +91 7095663307</span>
+                <span>+91 7676160673 / +91 7095663307</span>
               </div>
               <div className="flex items-center space-x-2.5">
                 <Mail className="w-4 h-4 text-[#DFB33F] shrink-0" />
