@@ -597,10 +597,19 @@ export const AppProvider = ({ children }) => {
         return;
       }
 
-      setProducts(
-        (data || []).map(mapProduct)
-      );
+      setProducts((data || []).map(mapProduct));
     }, []);
+
+
+
+  // Load public products for every visitor, including logged-out users.
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      return undefined;
+    }
+
+    fetchProducts();
+  }, [fetchProducts]);
 
   /*
    * ------------------------------------------------------------

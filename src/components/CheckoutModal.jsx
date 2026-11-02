@@ -223,11 +223,11 @@ export const CheckoutModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="bg-[#FDFBF7] rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-[#D4AF37]/40 relative my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="bg-[#FDFBF7] rounded-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-[#D4AF37]/40 relative">
 
         {/* Header */}
-        <div className="bg-[#0F3E2E] text-white p-6 relative border-b border-[#D4AF37]/30">
+        <div className="bg-[#0F3E2E] text-white px-4 py-3 relative border-b border-[#D4AF37]/30 shrink-0">
 
           <button
             onClick={() => setCheckoutOpen(false)}
@@ -255,11 +255,11 @@ export const CheckoutModal = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-4 overflow-y-auto">
 
           {/* Guest Checkout Banner */}
           {!user && (
-            <div className="bg-amber-50 p-4 rounded-2xl border border-[#D4AF37]/40 flex items-start space-x-3 text-xs">
+            <div className="bg-amber-50 px-3 py-2 rounded-xl border border-[#D4AF37]/30 flex items-center gap-2 text-[11px]">
               <ShieldCheck className="w-5 h-5 text-[#0F3E2E] shrink-0 mt-0.5" />
 
               <div>
@@ -300,7 +300,7 @@ export const CheckoutModal = () => {
               <span>1. Customer & Delivery Information</span>
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
               {/* Customer Full Name */}
               <div className="space-y-1">
@@ -317,7 +317,7 @@ export const CheckoutModal = () => {
                     placeholder="e.g. Rajesh Kumar"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-white rounded-xl border border-stone-300 text-xs text-[#0F3E2E] focus:outline-none focus:border-[#0F3E2E]"
+                    className="w-full pl-9 pr-3 py-2 bg-white rounded-xl border border-stone-300 text-xs text-[#0F3E2E] focus:outline-none focus:border-[#0F3E2E]"
                   />
                 </div>
               </div>
@@ -426,7 +426,7 @@ export const CheckoutModal = () => {
           </div>
 
           {/* Section 2: Payment Method */}
-          <div className="space-y-3 pt-4 border-t border-stone-200">
+          <div className="space-y-2 pt-3 border-t border-stone-200">
 
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F3E2E] flex items-center space-x-2">
               <Wallet className="w-4 h-4 text-[#D4AF37]" />
@@ -437,7 +437,7 @@ export const CheckoutModal = () => {
 
               {/* Wallet */}
               <label
-                className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${!user
+                className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${!user
                   ? 'opacity-50 cursor-not-allowed bg-stone-100 border-stone-200'
                   : paymentMethod === 'wallet'
                     ? 'bg-[#0F3E2E]/10 border-[#0F3E2E] shadow-sm cursor-pointer'
