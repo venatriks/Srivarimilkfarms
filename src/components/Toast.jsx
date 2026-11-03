@@ -10,8 +10,8 @@ export const Toast = () => {
   const isInfo = toast.type === 'info';
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-bounce-short transition-all duration-300">
-      <div className={`flex items-center space-x-3 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-md border ${
+    <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto max-w-md z-50 animate-bounce-short transition-all duration-300">
+      <div className={`flex items-center space-x-3 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl shadow-2xl backdrop-blur-md border ${
         isSuccess 
           ? 'bg-[#0F3E2E]/95 border-[#D4AF37]/40 text-white' 
           : isInfo 

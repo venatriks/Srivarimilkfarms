@@ -215,18 +215,18 @@ export const CustomerDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
         {/* LEFT COLUMN */}
-        <div className="lg:col-span-2 space-y-10">
+        <div className="lg:col-span-2 space-y-6 sm:space-y-10">
           {/* Subscription heading */}
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="font-serif-display text-2xl font-bold text-[#0F3E2E] flex items-center space-x-2">
-              <Milk className="w-6 h-6 text-[#D4AF37]" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <h2 className="font-serif-display text-xl sm:text-2xl font-bold text-[#0F3E2E] flex items-center space-x-2">
+              <Milk className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37]" />
               <span>Your Daily Milk Subscriptions</span>
             </h2>
 
-            <span className="text-xs text-stone-500 font-medium whitespace-nowrap">
+            <span className="text-xs text-stone-500 font-medium">
               Next Dispatch: Tomorrow, 5:30 AM
             </span>
           </div>
@@ -256,7 +256,7 @@ export const CustomerDashboard = () => {
               return (
                 <div
                   key={subscription.id}
-                  className={`bg-white rounded-3xl p-6 border shadow-md transition-all space-y-6 ${isActive
+                  className={`bg-white rounded-3xl p-4 sm:p-6 border shadow-md transition-all space-y-4 sm:space-y-6 ${isActive
                       ? 'border-[#0F3E2E]/20'
                       : 'border-amber-300 bg-amber-50/40'
                     }`}

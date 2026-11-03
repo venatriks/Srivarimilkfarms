@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, LogOut, ShieldAlert, Menu, X, Sparkles, ChevronDown, Database } from 'lucide-react';
+import { ShoppingBag, User, LogOut, ShieldAlert, Menu, X, Sparkles, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const Navbar = () => {
-  const { user, logout, cartItemCount, setCartOpen, supabaseActive } = useApp();
+  const { user, logout, cartItemCount, setCartOpen } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -23,49 +23,49 @@ export const Navbar = () => {
   return (
     <header className="sticky top-0 z-40 w-full transition-all duration-300 glass-panel shadow-sm border-b border-[#042B1B]/10">
       {/* Top Banner announcement */}
-      <div className="bg-[#042B1B] text-white text-xs py-1.5 px-4 text-center font-medium tracking-wider flex items-center justify-center space-x-2 border-b border-[#DFB33F]/30">
-        <Sparkles className="w-3.5 h-3.5 text-[#DFB33F] animate-pulse" />
-        <span>Fresh Morning Delivery Guarantee: Glass bottles dispatched at 5:30 AM every morning!</span>
+      <div className="bg-[#042B1B] text-white text-[11px] sm:text-xs py-1.5 px-2 sm:px-4 text-center font-medium tracking-wide sm:tracking-wider flex items-center justify-center space-x-1.5 sm:space-x-2 border-b border-[#DFB33F]/30">
+        <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#DFB33F] animate-pulse shrink-0" />
+        <span className="truncate sm:whitespace-normal">Fresh Morning Delivery: Glass bottles dispatched at 5:30 AM!</span>
         <span className="hidden sm:inline text-[#DFB33F]">• Pure A2 Desi Cow Milk</span>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-20">
 
           {/* Official Brand Logo & Name */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#DFB33F] shadow-md group-hover:scale-105 transition-transform duration-300 bg-[#042B1B] shrink-0">
+          <Link to="/" className="flex items-center space-x-2 sm:space-x-3 group min-w-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#DFB33F] shadow-md group-hover:scale-105 transition-transform duration-300 bg-[#042B1B] shrink-0">
               <img
                 src={`${import.meta.env.BASE_URL}images/logo_Main.png`}
                 alt="Srivari Milk Farms Logo"
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center space-x-1">
-                <span className="font-serif-display text-xl sm:text-2xl font-bold tracking-tight text-[#042B1B] leading-none group-hover:text-[#0B422B]">
+                <span className="font-serif-display text-lg sm:text-2xl font-bold tracking-tight text-[#042B1B] leading-none group-hover:text-[#0B422B]">
                   SRIVARI
                 </span>
-                <span className="text-[9px] font-bold text-[#DFB33F] uppercase tracking-widest bg-[#042B1B] px-1.5 py-0.5 rounded">
+                <span className="text-[8px] sm:text-[9px] font-bold text-[#DFB33F] uppercase tracking-widest bg-[#042B1B] px-1 sm:px-1.5 py-0.5 rounded shrink-0">
                   A2 FARMS
                 </span>
               </div>
-              <span className="text-[10px] tracking-[0.22em] text-[#DFB33F] font-extrabold uppercase">
+              <span className="text-[8px] sm:text-[10px] tracking-[0.2em] text-[#DFB33F] font-extrabold uppercase">
                 MILK FARMS
               </span>
               <span className="text-[9px] text-[#042B1B]/70 font-semibold truncate hidden lg:block">
-                ಶ್ರೀವಾರಿ ಮಿಲ್ಕ್ ಫಾರ್ಮ್ಸ್ • శ్రీ వారి మిల్క్ ఫార్మ్స్
+                ಶ್ರೀವಾರಿ ಮಿಲ್ಕ್ ಫಾರ್ಮ್ಸ್ • శ్రీ వారి ಮిల్ಕ್ ಫಾರ್ಮ್ಸ್
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-5 lg:space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`text-sm font-medium transition-colors duration-200 relative py-1 ${isActive(link.path)
+                className={`text-xs lg:text-sm font-medium transition-colors duration-200 relative py-1 ${isActive(link.path)
                   ? 'text-[#042B1B] font-bold'
                   : 'text-stone-700 hover:text-[#042B1B]'
                   }`}
@@ -79,17 +79,17 @@ export const Navbar = () => {
           </nav>
 
           {/* Right Action Icons & Auth */}
-          <div className="flex items-center space-x-4 sm:space-x-5">
+          <div className="flex items-center space-x-2 sm:space-x-4">
 
             {/* Quick Cart Icon with Badge */}
             <button
               onClick={() => setCartOpen(true)}
-              className="relative p-2.5 rounded-full text-[#042B1B] hover:bg-[#042B1B]/5 transition-colors focus:outline-none"
+              className="relative p-2 sm:p-2.5 rounded-full text-[#042B1B] hover:bg-[#042B1B]/5 transition-colors focus:outline-none"
               title="View Cart"
             >
-              <ShoppingBag className="w-6 h-6" />
+              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
               {cartItemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#DFB33F] text-[#042B1B] text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                <span className="absolute -top-1 -right-1 bg-[#DFB33F] text-[#042B1B] text-[10px] sm:text-xs font-bold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                   {cartItemCount}
                 </span>
               )}
@@ -100,9 +100,9 @@ export const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center space-x-2 pl-3 pr-2 py-1.5 rounded-full border border-[#042B1B]/20 bg-[#042B1B]/5 hover:bg-[#042B1B]/10 transition-colors"
+                  className="flex items-center space-x-1.5 sm:space-x-2 pl-2 sm:pl-3 pr-2 py-1 sm:py-1.5 rounded-full border border-[#042B1B]/20 bg-[#042B1B]/5 hover:bg-[#042B1B]/10 transition-colors"
                 >
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${user.role === 'admin' ? 'bg-[#DFB33F] text-[#042B1B]' : 'bg-[#042B1B] text-white'
+                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold ${user.role === 'admin' ? 'bg-[#DFB33F] text-[#042B1B]' : 'bg-[#042B1B] text-white'
                     }`}>
                     {user.name.charAt(0)}
                   </div>
@@ -163,19 +163,29 @@ export const Navbar = () => {
                 )}
               </div>
             ) : (
-              <Link
-                to="/login"
-                className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase bg-[#042B1B] text-white hover:bg-[#0B422B] border border-[#DFB33F]/40 shadow-md transition-all hover:scale-105"
-              >
-                <User className="w-4 h-4 text-[#DFB33F]" />
-                <span>Login</span>
-              </Link>
+              <>
+                <Link
+                  to="/login"
+                  className="sm:hidden p-2 rounded-full text-[#042B1B] hover:bg-[#042B1B]/5 transition-colors"
+                  title="Login"
+                >
+                  <User className="w-5 h-5" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="hidden sm:inline-flex items-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs font-bold tracking-wider uppercase bg-[#042B1B] text-white hover:bg-[#0B422B] border border-[#DFB33F]/40 shadow-md transition-all hover:scale-105 shrink-0"
+                >
+                  <User className="w-4 h-4 text-[#DFB33F]" />
+                  <span>Login</span>
+                </Link>
+              </>
             )}
 
             {/* Mobile Menu Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-[#042B1B] hover:bg-[#042B1B]/10"
+              className="md:hidden p-2 rounded-lg text-[#042B1B] hover:bg-[#042B1B]/10 transition-colors"
+              aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -186,38 +196,61 @@ export const Navbar = () => {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#FBF9F3] border-b border-[#042B1B]/10 px-4 pt-2 pb-6 space-y-3">
-          {navLinks.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-3 py-2 rounded-xl text-base font-medium ${isActive(link.path)
-                ? 'bg-[#042B1B] text-white font-semibold'
-                : 'text-stone-800 hover:bg-[#042B1B]/5'
-                }`}
-            >
-              {link.name}
-            </Link>
-          ))}
-          {!user ? (
-            <Link
-              to="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block w-full text-center py-3 bg-[#042B1B] text-white rounded-xl font-bold text-sm"
-            >
-              Customer & Admin Login
-            </Link>
-          ) : (
-            <Link
-              to={user.role === 'admin' ? '/admin' : '/dashboard'}
-              onClick={() => setMobileMenuOpen(false)}
-              className="block w-full text-center py-3 bg-[#DFB33F] text-[#042B1B] rounded-xl font-bold text-sm"
-            >
-              Go to Dashboard ({user.role})
-            </Link>
-          )}
-        </div>
+        <>
+          <div
+            className="md:hidden fixed inset-0 top-[calc(4rem+25px)] bg-black/40 backdrop-blur-xs z-30"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="md:hidden relative z-40 bg-[#FBF9F3] border-b border-[#042B1B]/10 px-4 pt-3 pb-6 space-y-2.5 shadow-xl max-h-[calc(100vh-5rem)] overflow-y-auto">
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isActive(link.path)
+                  ? 'bg-[#042B1B] text-white'
+                  : 'text-stone-800 hover:bg-[#042B1B]/5'
+                  }`}
+              >
+                {link.name}
+              </Link>
+            ))}
+            <div className="pt-2 border-t border-stone-200">
+              {!user ? (
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center space-x-2 w-full py-3 bg-[#042B1B] text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-md"
+                >
+                  <User className="w-4 h-4 text-[#DFB33F]" />
+                  <span>Customer & Admin Login</span>
+                </Link>
+              ) : (
+                <div className="space-y-2">
+                  <Link
+                    to={user.role === 'admin' ? '/admin' : '/dashboard'}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center space-x-2 w-full py-3 bg-[#DFB33F] text-[#042B1B] rounded-xl font-bold text-xs uppercase tracking-wider shadow-md"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Go to Dashboard ({user.role})</span>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      logout();
+                      navigate('/');
+                    }}
+                    className="flex items-center justify-center space-x-2 w-full py-2.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-xl font-bold text-xs transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Log Out ({user.name?.split(' ')[0]})</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </header>
   );

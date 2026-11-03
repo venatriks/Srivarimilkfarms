@@ -104,25 +104,25 @@ export const ResetPassword = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16 relative">
+    <div className="max-w-md mx-auto px-3.5 sm:px-4 py-8 sm:py-16 relative">
       <div className="bg-white rounded-3xl border border-[#0F3E2E]/10 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-[#0F3E2E] text-white p-8 text-center relative border-b border-[#D4AF37]/30">
-          <div className="w-16 h-16 rounded-full bg-white border-2 border-[#D4AF37] overflow-hidden mx-auto mb-3 shadow-md flex items-center justify-center">
+        <div className="bg-[#0F3E2E] text-white p-6 sm:p-8 text-center relative border-b border-[#D4AF37]/30">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border-2 border-[#D4AF37] overflow-hidden mx-auto mb-3 shadow-md flex items-center justify-center">
             <img
               src={`${import.meta.env.BASE_URL}images/logo_Main.png`}
               alt="Srivari Milk Farms Logo"
               className="w-full h-full object-cover"
             />
           </div>
-          <h2 className="font-serif-display text-2xl font-bold">Set New Password</h2>
+          <h2 className="font-serif-display text-xl sm:text-2xl font-bold">Set New Password</h2>
           <p className="text-xs text-emerald-200 mt-1">
             Customer Account Security Portal
           </p>
         </div>
 
         {/* Content Body */}
-        <div className="p-8 space-y-6">
+        <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
           {success ? (
             <div className="text-center py-6 space-y-5">
               <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-300 shadow-md">

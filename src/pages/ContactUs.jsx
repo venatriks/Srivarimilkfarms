@@ -23,28 +23,28 @@ export const ContactUs = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 sm:space-y-12">
 
       <div className="text-center max-w-3xl mx-auto space-y-3">
-        <span className="px-4 py-1.5 rounded-full bg-[#0F3E2E]/10 text-[#0F3E2E] text-xs font-bold uppercase tracking-widest border border-[#0F3E2E]/20">
+        <span className="px-3.5 py-1.5 rounded-full bg-[#0F3E2E]/10 text-[#0F3E2E] text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-[#0F3E2E]/20 inline-block">
           Get in Touch
         </span>
-        <h1 className="font-serif-display text-4xl font-bold text-[#0F3E2E]">
+        <h1 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#0F3E2E]">
           Visit Our Organic Farm & Help Desk
         </h1>
-        <p className="text-sm text-stone-600">
+        <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
           Have questions about your morning delivery schedule, glass bottle deposits, or want to schedule a weekend farm tour with your family?
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
 
         {/* Contact Info Cards */}
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-3">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-2 sm:space-y-3">
             <div className="flex items-center space-x-3 text-[#0F3E2E]">
-              <MapPin className="w-6 h-6 text-[#D4AF37]" />
-              <h4 className="font-bold text-base">Farm Address</h4>
+              <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37] shrink-0" />
+              <h4 className="font-bold text-sm sm:text-base">Farm Address</h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed">
               Srivari Milk Farms ,<br />
@@ -53,10 +53,10 @@ export const ContactUs = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-3">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-2 sm:space-y-3">
             <div className="flex items-center space-x-3 text-[#0F3E2E]">
-              <Phone className="w-6 h-6 text-[#D4AF37]" />
-              <h4 className="font-bold text-base">Customer Helpline</h4>
+              <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37] shrink-0" />
+              <h4 className="font-bold text-sm sm:text-base">Customer Helpline</h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed">
               Phone: +91 7022776637<br />
@@ -64,10 +64,10 @@ export const ContactUs = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-3">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-2 sm:space-y-3">
             <div className="flex items-center space-x-3 text-[#0F3E2E]">
-              <Clock className="w-6 h-6 text-[#D4AF37]" />
-              <h4 className="font-bold text-base">Farm Visit Hours</h4>
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37] shrink-0" />
+              <h4 className="font-bold text-sm sm:text-base">Farm Visit Hours</h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed">
               Sunday: 7:00 AM - 11:00 AM<br />
@@ -77,13 +77,13 @@ export const ContactUs = () => {
         </div>
 
         {/* Contact Form */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-[#0F3E2E]/10 shadow-xl space-y-6">
-          <h3 className="font-serif-display text-2xl font-bold text-[#0F3E2E]">
+        <div className="lg:col-span-2 bg-white p-5 sm:p-8 rounded-3xl border border-[#0F3E2E]/10 shadow-xl space-y-5 sm:space-y-6">
+          <h3 className="font-serif-display text-xl sm:text-2xl font-bold text-[#0F3E2E]">
             Send Us a Message
           </h3>
 
-          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <div className="space-y-1">
                 <label className="font-medium text-stone-600">Your Full Name</label>
                 <input
@@ -109,7 +109,7 @@ export const ContactUs = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <div className="space-y-1">
                 <label className="font-medium text-stone-600">Phone Number</label>
                 <input
@@ -151,7 +151,7 @@ export const ContactUs = () => {
 
             <button
               type="submit"
-              className="w-full py-4 bg-[#0F3E2E] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#18523f] shadow-md border border-[#D4AF37]/30 transition-transform active:scale-98 flex items-center justify-center space-x-2"
+              className="w-full py-3.5 sm:py-4 bg-[#0F3E2E] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#18523f] shadow-md border border-[#D4AF37]/30 transition-transform active:scale-98 flex items-center justify-center space-x-2"
             >
               <Send className="w-4 h-4 text-[#D4AF37]" />
               <span>Submit Inquiry</span>

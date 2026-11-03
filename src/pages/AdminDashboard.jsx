@@ -318,10 +318,10 @@ export const AdminDashboard = () => {
   const realTimeEmptyBottles = distributionList.reduce((acc, item) => acc + (Number(item.bottleReturnCount) || 0), 0) + 672;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
 
       {/* Admin Header */}
-      <div className="bg-[#042B1B] text-white p-8 rounded-3xl border border-[#DFB33F]/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-[#042B1B] text-white p-5 sm:p-8 rounded-3xl border border-[#DFB33F]/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
         <div className="space-y-2">
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border inline-flex items-center space-x-1.5 ${supabaseActive
             ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
@@ -330,7 +330,7 @@ export const AdminDashboard = () => {
             <Database className="w-3.5 h-3.5 text-[#DFB33F]" />
             <span>{supabaseActive ? 'Supabase Live Database Connected' : 'Local Database Control Center'}</span>
           </span>
-          <h1 className="font-serif-display text-3xl font-bold">
+          <h1 className="font-serif-display text-2xl sm:text-3xl font-bold">
             Srivari Milk Farms Control Portal
           </h1>
           <p className="text-xs text-emerald-200">
@@ -550,8 +550,8 @@ export const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="min-w-[750px] w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#042B1B]/5 border-b border-stone-200 text-[#042B1B] uppercase font-bold tracking-wider">
                   <th className="py-3.5 px-4">Customer Name</th>
@@ -623,8 +623,8 @@ export const AdminDashboard = () => {
               <p className="text-xs text-stone-500 mt-1">New customer subscriptions will appear here automatically.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-stone-200">
-              <table className="min-w-full text-sm">
+            <div className="overflow-x-auto touch-pan-x rounded-2xl border border-stone-200">
+              <table className="min-w-[700px] w-full text-sm">
                 <thead className="bg-[#042B1B] text-white">
                   <tr>
                     <th className="px-4 py-3 text-left font-bold">Customer</th>
@@ -783,8 +783,8 @@ export const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto touch-pan-x">
+                <table className="min-w-[750px] w-full text-left text-xs">
                   <thead>
                     <tr className="bg-[#042B1B]/5 border-b border-stone-200 text-[#042B1B] uppercase font-bold tracking-wider">
                       <th className="py-3 px-3">User Details</th>
@@ -905,7 +905,7 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-3 border-t border-stone-200 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3 pt-3 border-t border-stone-200 text-xs">
                   <div>
                     <label className="text-stone-500 block font-medium">Price (₹)</label>
                     <input
@@ -1031,8 +1031,8 @@ export const AdminDashboard = () => {
               <p className="text-xs text-stone-500">All customer inquiries have been marked as Completed or no search matches found.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto touch-pan-x">
+              <table className="min-w-[700px] w-full text-left text-xs">
                 <thead>
                   <tr className="bg-[#042B1B]/5 border-b border-stone-200 text-[#042B1B] uppercase font-bold tracking-wider">
                     <th className="py-3.5 px-4">Customer Details</th>
@@ -1222,8 +1222,8 @@ export const AdminDashboard = () => {
                 <p className="text-xs text-stone-500">No staff members match the selected category filter or search query.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto touch-pan-x">
+                <table className="min-w-[750px] w-full text-left text-xs">
                   <thead>
                     <tr className="bg-[#042B1B]/5 border-b border-stone-200 text-[#042B1B] uppercase font-bold tracking-wider">
                       <th className="py-3.5 px-4">Employee Details</th>
@@ -1570,11 +1570,11 @@ export const AdminDashboard = () => {
 
       {/* PRINT DISPATCH MANIFEST MODAL & PREVIEW */}
       {showPrintModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto">
-          <div className="bg-[#FBF9F3] rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-[#DFB33F]/40 my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto">
+          <div className="bg-[#FBF9F3] rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-[#DFB33F]/40 my-auto max-h-[94vh] flex flex-col">
 
             {/* Modal Header */}
-            <div className="bg-[#042B1B] text-white p-6 flex items-center justify-between border-b border-[#DFB33F]/30 print:hidden">
+            <div className="bg-[#042B1B] text-white p-4 sm:p-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#DFB33F]/30 print:hidden shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden border border-[#DFB33F] bg-white shrink-0">
                   <img src={`${import.meta.env.BASE_URL}images/logo_Main.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
@@ -1681,8 +1681,8 @@ export const AdminDashboard = () => {
               </div>
 
               {/* Roster Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse border border-stone-300">
+              <div className="overflow-x-auto touch-pan-x">
+                <table className="min-w-[650px] w-full text-left text-xs border-collapse border border-stone-300">
                   <thead>
                     <tr className="bg-[#042B1B] text-white uppercase text-[10px] font-bold">
                       <th className="p-2 border border-stone-300 w-8 text-center">#</th>
@@ -1736,8 +1736,8 @@ export const AdminDashboard = () => {
 
       {/* ADD EMPLOYEE MODAL */}
       {showAddEmpModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 space-y-6 my-8">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-stone-200 space-y-4 sm:space-y-6 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-100 pb-4">
               <div className="space-y-0.5">
                 <h3 className="font-serif-display text-xl font-bold text-[#042B1B] flex items-center space-x-2">
@@ -1874,8 +1874,8 @@ export const AdminDashboard = () => {
 
       {/* EDIT EMPLOYEE MODAL */}
       {editingEmp && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 space-y-6 my-8">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-stone-200 space-y-4 sm:space-y-6 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-100 pb-4">
               <div className="space-y-0.5">
                 <h3 className="font-serif-display text-xl font-bold text-[#042B1B] flex items-center space-x-2">
@@ -2088,8 +2088,8 @@ export const AdminDashboard = () => {
           </div>
 
           {/* Orders Data Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="min-w-[750px] w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#042B1B]/5 border-b border-stone-200 text-[#042B1B] uppercase font-bold tracking-wider">
                   <th className="py-3.5 px-4">Order ID & Date</th>
@@ -2217,8 +2217,8 @@ export const AdminDashboard = () => {
 
       {/* One-Time Order Detailed Modal */}
       {selectedOneTimeOrderDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-[#DFB33F]/30 space-y-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-[#DFB33F]/30 space-y-4 sm:space-y-6 relative my-auto max-h-[92vh] overflow-y-auto">
             <button
               onClick={() => setSelectedOneTimeOrderDetails(null)}
               className="absolute top-4 right-4 text-stone-400 hover:text-stone-700 p-1 rounded-full hover:bg-stone-100"

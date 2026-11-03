@@ -13,11 +13,18 @@
     --color-gold-dark: #B3871C;
   }
 
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     background-color: #FBF9F3;
     color: #16241c;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
+    width: 100%;
   }
 
   h1, h2, h3, h4, .font-serif-display {
@@ -26,6 +33,14 @@
 }
 
 /* Custom Scrollbars */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }

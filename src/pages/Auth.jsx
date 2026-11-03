@@ -271,7 +271,7 @@ export const Auth = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-12 relative">
+    <div className="max-w-md mx-auto px-3 sm:px-4 py-8 sm:py-12 relative">
 
       {/* ====================================================== */}
       {/* CARD */}
@@ -283,9 +283,9 @@ export const Auth = () => {
         {/* HEADER */}
         {/* ==================================================== */}
 
-        <div className="bg-[#0F3E2E] text-white p-8 text-center relative border-b border-[#D4AF37]/30">
+        <div className="bg-[#0F3E2E] text-white p-6 sm:p-8 text-center relative border-b border-[#D4AF37]/30">
 
-          <div className="w-16 h-16 rounded-full bg-white border-2 border-[#D4AF37] overflow-hidden mx-auto mb-3 shadow-md">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border-2 border-[#D4AF37] overflow-hidden mx-auto mb-3 shadow-md">
 
             <img
               src={`${import.meta.env.BASE_URL}images/logo_Main.png`}
@@ -295,7 +295,7 @@ export const Auth = () => {
 
           </div>
 
-          <h2 className="font-serif-display text-2xl font-bold">
+          <h2 className="font-serif-display text-xl sm:text-2xl font-bold">
             Srivari Milk Farms Portal
           </h2>
 
@@ -309,7 +309,7 @@ export const Auth = () => {
         {/* ROLE SWITCH */}
         {/* ==================================================== */}
 
-        <div className="p-4 bg-[#FDFBF7] border-b border-stone-200">
+        <div className="p-3 sm:p-4 bg-[#FDFBF7] border-b border-stone-200">
 
           <div className="grid grid-cols-2 gap-2 p-1 bg-stone-200/60 rounded-2xl">
 
@@ -345,7 +345,7 @@ export const Auth = () => {
         {/* FORM BODY */}
         {/* ==================================================== */}
 
-        <div className="p-8 space-y-6">
+        <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
 
           {/* ================================================== */}
           {/* CUSTOMER SIGN IN / SIGN UP TABS */}
@@ -748,9 +748,9 @@ export const Auth = () => {
 
       {forgotModalOpen && (
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
 
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#D4AF37]/30 space-y-4 relative">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-[#D4AF37]/30 space-y-4 relative">
 
             <button
               type="button"

@@ -32,11 +32,11 @@ export function App() {
     <Router>
       <AppProvider>
         <ScrollToTop />
-        <div className="min-h-screen flex flex-col bg-[#FDFBF7] text-[#1C2B23] font-sans antialiased selection:bg-[#D4AF37] selection:text-[#0F3E2E]">
+        <div className="min-h-screen flex flex-col bg-[#FDFBF7] text-[#1C2B23] font-sans antialiased selection:bg-[#D4AF37] selection:text-[#0F3E2E] w-full overflow-x-hidden">
 
           <Navbar />
 
-          <main className="flex-grow">
+          <main className="flex-grow w-full overflow-x-hidden">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/products" element={<Products />} />

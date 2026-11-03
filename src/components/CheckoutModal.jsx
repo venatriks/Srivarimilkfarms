@@ -224,15 +224,15 @@ export const CheckoutModal = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="bg-[#FDFBF7] rounded-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-[#D4AF37]/40 relative">
+      <div className="bg-[#FDFBF7] rounded-2xl max-w-xl w-full max-h-[94vh] sm:max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-[#D4AF37]/40 relative my-auto">
 
         {/* Header */}
-        <div className="bg-[#0F3E2E] text-white px-4 py-3 relative border-b border-[#D4AF37]/30 shrink-0">
+        <div className="bg-[#0F3E2E] text-white p-4 sm:p-5 relative border-b border-[#D4AF37]/30 shrink-0">
 
           <button
             onClick={() => setCheckoutOpen(false)}
             disabled={submitting}
-            className="absolute top-5 right-5 text-emerald-200 hover:text-white p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 text-emerald-200 hover:text-white p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
@@ -242,20 +242,20 @@ export const CheckoutModal = () => {
             <span>5 AM Morning Fresh Dispatch</span>
           </div>
 
-          <h3 className="font-serif-display text-2xl font-bold text-white">
+          <h3 className="font-serif-display text-xl sm:text-2xl font-bold text-white pr-8">
             {user
               ? 'Checkout & Order Confirmation'
               : 'Guest Checkout (No Login Required)'}
           </h3>
 
-          <p className="text-xs text-emerald-100/80 mt-1">
+          <p className="text-[11px] sm:text-xs text-emerald-100/80 mt-1">
             {user
               ? 'Review delivery details and choose your preferred payment mode'
               : 'Order pure A2 dairy products for one-time delivery without creating an account'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-4 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-5 space-y-4 overflow-y-auto">
 
           {/* Guest Checkout Banner */}
           {!user && (

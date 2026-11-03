@@ -173,18 +173,7 @@ export const AppProvider = ({ children }) => {
 
   const idleTimerRef = useRef(null);
 
-  const [cart, setCart] = useState(() => {
-    try {
-      const saved =
-        localStorage.getItem('srivari_cart');
-
-      return saved
-        ? JSON.parse(saved)
-        : [];
-    } catch {
-      return [];
-    }
-  });
+  const [cart, setCart] = useState([]);
 
   const [cartOpen, setCartOpen] =
     useState(false);
@@ -1796,21 +1785,6 @@ export const AppProvider = ({ children }) => {
    * CART
    * ------------------------------------------------------------
    */
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        'srivari_cart',
-        JSON.stringify(cart)
-      );
-    } catch (error) {
-      console.error(
-        'Cart localStorage error:',
-        error
-      );
-    }
-  }, [cart]);
-
   const addToCart = (
     product,
     quantity = 1,

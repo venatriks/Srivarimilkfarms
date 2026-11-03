@@ -19,10 +19,10 @@ export const Home = () => {
   const calculatedMonthlyPrice = Math.round(calculatedDailyLiters * 30 * 75);
 
   return (
-    <div className="space-y-20 pb-20">
+    <div className="space-y-12 sm:space-y-16 md:space-y-20 pb-12 sm:pb-20">
 
       {/* 1. HERO SECTION */}
-      <section className="relative min-h-[85vh] flex items-center justify-center pt-8 pb-16 overflow-hidden">
+      <section className="relative min-h-[80vh] sm:min-h-[85vh] flex items-center justify-center pt-8 pb-14 sm:pb-16 overflow-hidden">
         {/* Background Image with Gradient Overlay */}
         <div className="absolute inset-0 z-0">
           <img
@@ -35,51 +35,51 @@ export const Home = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-          <div className="max-w-2xl text-white space-y-6">
+          <div className="max-w-2xl text-white space-y-4 sm:space-y-6">
 
             {/* Top Badge */}
-            <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-[#D4AF37]/50 text-[#D4AF37] text-xs font-bold uppercase tracking-widest animate-pulse-glow">
-              <Sparkles className="w-4 h-4" />
+            <div className="inline-flex items-center space-x-2 px-3 sm:px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-[#D4AF37]/50 text-[#D4AF37] text-[10px] sm:text-xs font-bold uppercase tracking-widest animate-pulse-glow">
+              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Single-Origin Pure Cow A2 Milk</span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="font-serif-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight">
+            <h1 className="font-serif-display text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight">
               Pure, Unprocessed A2 Cow Milk Fresh From Our Farm to Your Doorstep.
             </h1>
 
             {/* Subheading */}
-            <p className="text-base sm:text-lg text-emerald-100/90 leading-relaxed font-normal">
-              Directly dispatched from our free-range  cows within 12 hours of milking. 100% untouched by hand, cold-chain chilled at 3.8°C, and delivered in tamper-proof glass bottles by 5:30 AM every morning.
+            <p className="text-sm sm:text-base lg:text-lg text-emerald-100/90 leading-relaxed font-normal">
+              Directly dispatched from our free-range cows within 12 hours of milking. 100% untouched by hand, cold-chain chilled at 3.8°C, and delivered in tamper-proof glass bottles by 5:30 AM every morning.
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 sm:pt-4">
               <Link
                 to="/products"
-                className="px-8 py-4 bg-[#D4AF37] text-[#0F3E2E] rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-amber-400 transition-all transform hover:scale-105 shadow-xl flex items-center justify-center space-x-2 border border-amber-300"
+                className="px-6 py-3.5 sm:px-8 sm:py-4 bg-[#D4AF37] text-[#0F3E2E] rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wider hover:bg-amber-400 transition-all transform hover:scale-105 shadow-xl flex items-center justify-center space-x-2 border border-amber-300"
               >
                 <span>Start Daily Subscription</span>
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </Link>
 
               <Link
                 to="/quality"
-                className="px-8 py-4 bg-white/10 text-white rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-white/20 backdrop-blur-md border border-white/20 transition-all flex items-center justify-center space-x-2"
+                className="px-6 py-3.5 sm:px-8 sm:py-4 bg-white/10 text-white rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wider hover:bg-white/20 backdrop-blur-md border border-white/20 transition-all flex items-center justify-center space-x-2"
               >
-                <FlaskConical className="w-5 h-5 text-[#D4AF37]" />
+                <FlaskConical className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4AF37]" />
                 <span>View Lab Test Standards</span>
               </Link>
             </div>
 
             {/* Social Trust Guarantee */}
-            <div className="pt-6 flex items-center space-x-6 text-xs text-emerald-200 border-t border-white/10">
+            <div className="pt-4 sm:pt-6 flex flex-wrap items-center gap-3 sm:gap-6 text-xs text-emerald-200 border-t border-white/10">
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
+                <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
                 <span>Zero Adulteration Guarantee</span>
               </div>
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
+                <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
                 <span>Cancel / Pause Anytime</span>
               </div>
             </div>
@@ -90,9 +90,9 @@ export const Home = () => {
 
       {/* 2. QUICK HIGHLIGHTS (4 Pillars) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 
-          <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
             <div className="w-12 h-12 rounded-2xl bg-[#0F3E2E]/10 text-[#0F3E2E] flex items-center justify-center mb-4 group-hover:bg-[#0F3E2E] group-hover:text-[#D4AF37] transition-colors">
               <Leaf className="w-6 h-6" />
             </div>
@@ -102,7 +102,7 @@ export const Home = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
             <div className="w-12 h-12 rounded-2xl bg-[#0F3E2E]/10 text-[#0F3E2E] flex items-center justify-center mb-4 group-hover:bg-[#0F3E2E] group-hover:text-[#D4AF37] transition-colors">
               <ShieldCheck className="w-6 h-6" />
             </div>
@@ -112,7 +112,7 @@ export const Home = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
             <div className="w-12 h-12 rounded-2xl bg-[#0F3E2E]/10 text-[#0F3E2E] flex items-center justify-center mb-4 group-hover:bg-[#0F3E2E] group-hover:text-[#D4AF37] transition-colors">
               <FlaskConical className="w-6 h-6" />
             </div>
@@ -122,7 +122,7 @@ export const Home = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#0F3E2E]/10 shadow-sm hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
             <div className="w-12 h-12 rounded-2xl bg-[#0F3E2E]/10 text-[#0F3E2E] flex items-center justify-center mb-4 group-hover:bg-[#0F3E2E] group-hover:text-[#D4AF37] transition-colors">
               <Truck className="w-6 h-6" />
             </div>
@@ -135,32 +135,32 @@ export const Home = () => {
         </div>
       </section>
 
-      {/* 3. FEATURED PRODUCTS GRID / CAROUSEL */}
+      {/* 3. FEATURED PRODUCTS GRID */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-8 sm:mb-10">
           <div>
             <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest">Farm Pure Range</span>
-            <h2 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#0F3E2E] mt-1">
+            <h2 className="font-serif-display text-2xl sm:text-3xl md:text-4xl font-bold text-[#0F3E2E] mt-1">
               Our Featured Dairy Products
             </h2>
           </div>
           <Link
             to="/products"
-            className="mt-4 md:mt-0 inline-flex items-center space-x-2 text-xs font-bold text-[#0F3E2E] uppercase tracking-wider hover:text-[#18523f] group"
+            className="inline-flex items-center space-x-2 text-xs font-bold text-[#0F3E2E] uppercase tracking-wider hover:text-[#18523f] group shrink-0"
           >
             <span>Explore All Farm Products</span>
             <ChevronRight className="w-4 h-4 text-[#D4AF37] group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {products.slice(0, 3).map((product) => (
             <div
               key={product.id}
               className="bg-white rounded-3xl overflow-hidden border border-[#0F3E2E]/10 shadow-md hover:shadow-2xl transition-all duration-300 flex flex-col group"
             >
               {/* Image & Badge */}
-              <div className="relative h-64 overflow-hidden bg-stone-100">
+              <div className="relative h-56 sm:h-64 overflow-hidden bg-stone-100">
                 <img
                   src={product.image}
                   alt={product.name}
@@ -180,13 +180,13 @@ export const Home = () => {
               </div>
 
               {/* Product Info */}
-              <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+              <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-4">
                 <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-serif-display text-xl font-bold text-[#0F3E2E]">
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <h3 className="font-serif-display text-lg sm:text-xl font-bold text-[#0F3E2E]">
                       {product.name}
                     </h3>
-                    <div className="flex items-center space-x-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 text-xs font-bold text-amber-800">
+                    <div className="flex items-center space-x-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 text-xs font-bold text-amber-800 shrink-0">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                       <span>{product.rating}</span>
                     </div>
@@ -197,7 +197,7 @@ export const Home = () => {
                   </p>
 
                   {/* Fat & SNF Quick Stats */}
-                  <div className="flex space-x-4 mt-4 py-2 px-3 bg-[#FDFBF7] rounded-xl border border-stone-200/80 text-[11px]">
+                  <div className="flex flex-wrap sm:flex-nowrap justify-between gap-2 mt-4 py-2 px-3 bg-[#FDFBF7] rounded-xl border border-stone-200/80 text-[11px]">
                     <div>
                       <span className="text-stone-500 font-medium">Fat: </span>
                       <span className="font-bold text-[#0F3E2E]">{product.labParameters?.fatPercentage}</span>
@@ -214,17 +214,17 @@ export const Home = () => {
                 </div>
 
                 {/* Price & Action */}
-                <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
+                <div className="pt-3 border-t border-stone-100 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
                   <div>
                     <span className="text-xs text-stone-500 block">Farm Price</span>
                     <span className="text-xl font-bold text-[#0F3E2E]">₹{product.price}</span>
                     <span className="text-[11px] text-stone-500 font-medium"> / {product.unit}</span>
                   </div>
 
-                  <div className="flex space-x-2">
+                  <div className="flex items-center space-x-2">
                     <button
                       onClick={() => addToCart(product, 1, 'subscription')}
-                      className="px-3.5 py-2 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1"
+                      className="px-3 py-2 sm:px-3.5 sm:py-2 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1 shrink-0"
                       title={!user ? "Login required to subscribe" : "Subscribe for daily/alternate delivery"}
                     >
                       {!user && <Lock className="w-3 h-3 text-[#0F3E2E]" />}
@@ -232,7 +232,7 @@ export const Home = () => {
                     </button>
                     <button
                       onClick={() => addToCart(product, 1, 'one-time')}
-                      className="px-3.5 py-2 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1"
+                      className="px-3 py-2 sm:px-3.5 sm:py-2 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1 shrink-0"
                       title={!user ? "Login required to add to cart" : "One-time purchase"}
                     >
                       {!user && <Lock className="w-3 h-3 text-[#D4AF37]" />}
@@ -249,26 +249,26 @@ export const Home = () => {
 
       {/* 4. INTERACTIVE MILK CALCULATOR */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-br from-[#0F3E2E] to-[#18523f] text-white rounded-3xl p-8 sm:p-12 shadow-2xl border border-[#D4AF37]/30 relative overflow-hidden">
-          <div className="max-w-3xl relative z-10 space-y-8">
+        <div className="bg-gradient-to-br from-[#0F3E2E] to-[#18523f] text-white rounded-3xl p-6 sm:p-10 md:p-12 shadow-2xl border border-[#D4AF37]/30 relative overflow-hidden">
+          <div className="max-w-3xl relative z-10 space-y-6 sm:space-y-8">
 
             <div className="space-y-2">
               <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest flex items-center space-x-2">
                 <Calculator className="w-4 h-4" />
                 <span>Smart Family Milk Plan Calculator</span>
               </span>
-              <h2 className="font-serif-display text-3xl sm:text-4xl font-bold text-white">
+              <h2 className="font-serif-display text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                 Calculate Your Monthly Fresh A2 Milk Requirement
               </h2>
-              <p className="text-sm text-emerald-100/90">
+              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
                 Adjust family size and daily consumption to discover your ideal daily delivery quantity & transparent monthly investment.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-center bg-white/5 p-4 sm:p-6 rounded-2xl border border-white/10 backdrop-blur-md">
 
               {/* Controls */}
-              <div className="space-y-6">
+              <div className="space-y-5 sm:space-y-6">
 
                 {/* Family Members slider */}
                 <div className="space-y-2">
@@ -292,12 +292,12 @@ export const Home = () => {
                     <span>Per Person Consumption</span>
                     <span className="text-[#D4AF37] text-sm">{litersPerPerson} L / day</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                     {[0.25, 0.5, 0.75].map((val) => (
                       <button
                         key={val}
                         onClick={() => setLitersPerPerson(val)}
-                        className={`py-2 rounded-xl text-xs font-bold transition-all ${litersPerPerson === val
+                        className={`py-2 px-1 rounded-xl text-[10px] sm:text-xs font-bold transition-all text-center ${litersPerPerson === val
                           ? 'bg-[#D4AF37] text-[#0F3E2E]'
                           : 'bg-white/10 text-white hover:bg-white/20'
                           }`}
@@ -311,18 +311,18 @@ export const Home = () => {
               </div>
 
               {/* Result Box */}
-              <div className="bg-white text-[#0F3E2E] p-6 rounded-2xl shadow-xl space-y-4 text-center border-2 border-[#D4AF37]">
+              <div className="bg-white text-[#0F3E2E] p-5 sm:p-6 rounded-2xl shadow-xl space-y-4 text-center border-2 border-[#D4AF37]">
                 <div>
                   <span className="text-xs font-bold uppercase text-stone-500 tracking-wider">Recommended Daily Delivery</span>
-                  <div className="text-4xl font-bold font-serif-display text-[#0F3E2E] mt-1">
-                    {calculatedDailyLiters} <span className="text-xl font-sans text-[#D4AF37]">Liters / Day</span>
+                  <div className="text-3xl sm:text-4xl font-bold font-serif-display text-[#0F3E2E] mt-1">
+                    {calculatedDailyLiters} <span className="text-lg sm:text-xl font-sans text-[#D4AF37]">Liters / Day</span>
                   </div>
                   <span className="text-[11px] text-emerald-800 font-semibold">Glass Bottle Dispatch at 5:30 AM</span>
                 </div>
 
                 <div className="pt-3 border-t border-stone-200">
                   <span className="text-xs text-stone-500 font-medium">Estimated Monthly Investment</span>
-                  <div className="text-2xl font-bold text-[#0F3E2E] mt-0.5">
+                  <div className="text-xl sm:text-2xl font-bold text-[#0F3E2E] mt-0.5">
                     ₹{calculatedMonthlyPrice.toLocaleString()} <span className="text-xs text-stone-500 font-normal">/ 30 Days</span>
                   </div>
                 </div>
@@ -349,66 +349,66 @@ export const Home = () => {
 
       {/* 5. QUALITY & TESTING STANDARDS SECTION */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
 
           <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-[#0F3E2E]/10">
             <img
               src={`${import.meta.env.BASE_URL}images/quality_lab.jpg`}
               alt="NABL Accredited Quality Testing Lab"
-              className="w-full h-[450px] object-cover"
+              className="w-full h-80 sm:h-96 lg:h-[450px] object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0F3E2E] via-transparent to-transparent" />
 
-            <div className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-[#D4AF37]/40 shadow-xl">
-              <div className="flex items-center space-x-3 mb-2">
-                <Award className="w-6 h-6 text-[#D4AF37]" />
-                <h4 className="font-serif-display text-base font-bold text-[#0F3E2E]">NABL Accredited Laboratory Tested</h4>
+            <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6 bg-white/95 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-[#D4AF37]/40 shadow-xl">
+              <div className="flex items-center space-x-3 mb-1.5 sm:mb-2">
+                <Award className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37] shrink-0" />
+                <h4 className="font-serif-display text-sm sm:text-base font-bold text-[#0F3E2E]">NABL Accredited Laboratory Tested</h4>
               </div>
-              <p className="text-xs text-stone-600 leading-relaxed">
+              <p className="text-[11px] sm:text-xs text-stone-600 leading-relaxed">
                 Zero tolerance for milk adulteration. Every single batch is verified for Fat %, SNF %, Somatic Cell Count, and 100% DNA Certified A2 Beta-Casein.
               </p>
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest">Uncompromising Standards</span>
-            <h2 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#0F3E2E]">
+            <h2 className="font-serif-display text-2xl sm:text-3xl md:text-4xl font-bold text-[#0F3E2E]">
               Why Srivari A2 Milk is 100% Pure & Unadulterated
             </h2>
-            <p className="text-sm text-stone-600 leading-relaxed">
+            <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
               Unlike commercial packet milk which undergoes severe high-heat processing, homogenization, and synthetic fat adjustments, Srivari milk remains in its raw, natural state.
             </p>
 
-            <div className="space-y-4 pt-2">
-              <div className="flex items-start space-x-3 p-4 bg-white rounded-2xl border border-[#0F3E2E]/10 shadow-sm">
-                <Snowflake className="w-6 h-6 text-[#0F3E2E] shrink-0 mt-1" />
+            <div className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
+              <div className="flex items-start space-x-3 p-3.5 sm:p-4 bg-white rounded-2xl border border-[#0F3E2E]/10 shadow-sm">
+                <Snowflake className="w-5 h-5 sm:w-6 sm:h-6 text-[#0F3E2E] shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-sm text-[#0F3E2E]">Immediate 4°C Cold Chain</h4>
+                  <h4 className="font-bold text-xs sm:text-sm text-[#0F3E2E]">Immediate 4°C Cold Chain</h4>
                   <p className="text-xs text-stone-600 mt-0.5">Milk is rapidly chilled to 3.8°C within 15 minutes of automated milking to lock in natural enzymes and prevent bacterial growth.</p>
                 </div>
               </div>
 
-              <div className="flex items-start space-x-3 p-4 bg-white rounded-2xl border border-[#0F3E2E]/10 shadow-sm">
-                <ShieldCheck className="w-6 h-6 text-[#0F3E2E] shrink-0 mt-1" />
+              <div className="flex items-start space-x-3 p-3.5 sm:p-4 bg-white rounded-2xl border border-[#0F3E2E]/10 shadow-sm">
+                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-[#0F3E2E] shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-sm text-[#0F3E2E]">Zero Antibiotics & Zero Hormones</h4>
+                  <h4 className="font-bold text-xs sm:text-sm text-[#0F3E2E]">Zero Antibiotics & Zero Hormones</h4>
                   <p className="text-xs text-stone-600 mt-0.5">We strictly prohibit synthetic hormone injections (Oxytocin) or antibiotic treatments on our Gir cow herd.</p>
                 </div>
               </div>
 
-              <div className="flex items-start space-x-3 p-4 bg-white rounded-2xl border border-[#0F3E2E]/10 shadow-sm">
-                <RefreshCw className="w-6 h-6 text-[#0F3E2E] shrink-0 mt-1" />
+              <div className="flex items-start space-x-3 p-3.5 sm:p-4 bg-white rounded-2xl border border-[#0F3E2E]/10 shadow-sm">
+                <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-[#0F3E2E] shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-sm text-[#0F3E2E]">Eco-Friendly Glass Bottle Packaging</h4>
+                  <h4 className="font-bold text-xs sm:text-sm text-[#0F3E2E]">Eco-Friendly Glass Bottle Packaging</h4>
                   <p className="text-xs text-stone-600 mt-0.5">Bottled in reusable lead-free glass bottles to prevent microplastic leaching into your milk.</p>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-2 sm:pt-4">
               <Link
                 to="/quality"
-                className="inline-flex items-center space-x-2 px-6 py-3 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#18523f] shadow-md transition-all"
+                className="inline-flex items-center space-x-2 px-5 py-3 sm:px-6 sm:py-3.5 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#18523f] shadow-md transition-all"
               >
                 <span>Read Full Quality Protocol</span>
                 <ArrowRight className="w-4 h-4 text-[#D4AF37]" />
@@ -422,14 +422,14 @@ export const Home = () => {
 
       {/* 6. VERIFIED TESTIMONIALS */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12 space-y-2">
           <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest">Loved by 10,000+ Families</span>
-          <h2 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#0F3E2E]">
+          <h2 className="font-serif-display text-2xl sm:text-3xl md:text-4xl font-bold text-[#0F3E2E]">
             What Our Subscribers Say
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {[
             {
               name: "Ms. Anjana Sree",
@@ -453,8 +453,8 @@ export const Home = () => {
               avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80"
             }
           ].map((item, idx) => (
-            <div key={idx} className="bg-white p-8 rounded-3xl border border-[#0F3E2E]/10 shadow-md flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
+            <div key={idx} className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F3E2E]/10 shadow-md flex flex-col justify-between space-y-5 sm:space-y-6">
+              <div className="space-y-3 sm:space-y-4">
                 <div className="flex text-amber-400 space-x-1">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
@@ -465,7 +465,7 @@ export const Home = () => {
                 </p>
               </div>
 
-              <div className="flex items-center space-x-3 pt-4 border-t border-stone-100">
+              <div className="flex items-center space-x-3 pt-3 sm:pt-4 border-t border-stone-100">
                 <img
                   src={item.avatar}
                   alt={item.name}
@@ -483,24 +483,24 @@ export const Home = () => {
 
       {/* 7. CTA BANNER */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#0F3E2E] rounded-3xl p-8 sm:p-12 text-center text-white relative overflow-hidden border border-[#D4AF37]/40 shadow-2xl">
-          <div className="max-w-2xl mx-auto space-y-6 relative z-10">
-            <span className="px-4 py-1.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold uppercase tracking-widest border border-[#D4AF37]">
+        <div className="bg-[#0F3E2E] rounded-3xl p-6 sm:p-10 md:p-12 text-center text-white relative overflow-hidden border border-[#D4AF37]/40 shadow-2xl">
+          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6 relative z-10">
+            <span className="inline-block px-3.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-[#D4AF37]">
               Start Your Healthy Morning Ritual Today
             </span>
-            <h2 className="font-serif-display text-3xl sm:text-5xl font-bold text-white">
+            <h2 className="font-serif-display text-2xl sm:text-4xl md:text-5xl font-bold text-white">
               Try Fresh Farm A2 Milk Tomorrow Morning at 5:30 AM
             </h2>
-            <p className="text-sm text-emerald-100/90">
+            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
               No long commitments required. Order a 3-day trial pack or start a flexible daily subscription with doorstep bottle delivery.
             </p>
-            <div>
+            <div className="pt-2">
               <Link
                 to="/products"
-                className="inline-flex items-center space-x-2 px-8 py-4 bg-[#D4AF37] text-[#0F3E2E] rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-amber-400 transition-transform active:scale-95 shadow-xl border border-amber-300"
+                className="inline-flex items-center space-x-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-[#D4AF37] text-[#0F3E2E] rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wider hover:bg-amber-400 transition-transform active:scale-95 shadow-xl border border-amber-300"
               >
                 <span>View Products & Subscribe</span>
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </Link>
             </div>
           </div>
