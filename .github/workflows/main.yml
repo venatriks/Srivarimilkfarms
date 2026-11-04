@@ -43,6 +43,14 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
         run: |
           npm run build
+
+          # Create real entry points for React routes
+          for route in products quality about contact login reset-password dashboard admin; do
+            mkdir -p "dist/$route"
+            cp dist/index.html "dist/$route/index.html"
+          done
+
+          # Keep fallback for unknown routes
           cp dist/index.html dist/404.html
 
       - name: Setup Pages
