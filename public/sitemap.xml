@@ -1,24 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
   <url>
     <loc>https://srivarimilkfarms.com/</loc>
   </url>
-
   <url>
-    <loc>https://srivarimilkfarms.com/products</loc>
+    <loc>https://srivarimilkfarms.com/products/</loc>
   </url>
-
   <url>
-    <loc>https://srivarimilkfarms.com/quality</loc>
+    <loc>https://srivarimilkfarms.com/quality/</loc>
   </url>
-
   <url>
-    <loc>https://srivarimilkfarms.com/about</loc>
+    <loc>https://srivarimilkfarms.com/about/</loc>
   </url>
-
   <url>
-    <loc>https://srivarimilkfarms.com/contact</loc>
+    <loc>https://srivarimilkfarms.com/contact/</loc>
   </url>
-
 </urlset>
