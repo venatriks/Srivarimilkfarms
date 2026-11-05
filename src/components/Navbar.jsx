@@ -54,7 +54,7 @@ export const Navbar = () => {
                 MILK FARMS
               </span>
               <span className="text-[9px] text-[#042B1B]/70 font-semibold truncate hidden lg:block">
-                ಶ್ರೀವಾರಿ ಮಿಲ್ಕ್ ಫಾರ್ಮ್ಸ್ • శ్రీ వారి ಮిల్ಕ್ ಫಾರ್ಮ್ಸ್
+                ಶ್ರೀ ವಾರಿ ಮಿಲ್ಕ್ ಫಾರ್ಮ್ಸ • శ్రీ వారి మిల్క్ ఫార్మ్స్
               </span>
             </div>
           </Link>

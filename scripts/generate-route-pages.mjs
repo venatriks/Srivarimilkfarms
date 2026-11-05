@@ -63,6 +63,72 @@ function replaceMeta(html, attribute, value) {
     );
 }
 
+const HOMEPAGE_SCHEMA_ID = 'srivari-business-schema';
+
+const businessSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    '@id': 'https://srivarimilkfarms.com/#business',
+    name: 'Srivari Milk Farms',
+    url: 'https://srivarimilkfarms.com/',
+    telephone: '+917676160673',
+    description:
+        'Dairy farm in D.Hirehal, Anantapur district, Andhra Pradesh, offering A2 desi cow milk, buffalo milk, traditional Vedic Bilona ghee, fresh paneer and curd.',
+    address: {
+        '@type': 'PostalAddress',
+        streetAddress: 'Survey 197/A, Rajeev Nagar',
+        addressLocality: 'D.Hirehal',
+        addressRegion: 'Andhra Pradesh',
+        postalCode: '515872',
+        addressCountry: 'IN',
+    },
+    openingHoursSpecification: [
+        {
+            '@type': 'OpeningHoursSpecification',
+            dayOfWeek: [
+                'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+                'Friday', 'Saturday', 'Sunday'
+            ],
+            opens: '06:00',
+            closes: '09:00',
+        },
+        {
+            '@type': 'OpeningHoursSpecification',
+            dayOfWeek: [
+                'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+                'Friday', 'Saturday', 'Sunday'
+            ],
+            opens: '17:00',
+            closes: '19:00',
+        },
+    ],
+};
+
+function removeHomepageSchema(html) {
+    return html.replace(
+        /<script type="application\/ld\+json" id="srivari-business-schema">[\s\S]*?<\/script>\s*/i,
+        ''
+    );
+}
+
+function injectHomepageSchema(html) {
+    const cleanHtml = removeHomepageSchema(html);
+
+    if (!/<\/head>/i.test(cleanHtml)) {
+        throw new Error('Could not find closing head tag for business schema.');
+    }
+
+    const schemaScript =
+        `<script type="application/ld+json" id="${HOMEPAGE_SCHEMA_ID}">` +
+        JSON.stringify(businessSchema) +
+        '</script>';
+
+    return cleanHtml.replace(
+        /<\/head>/i,
+        `${schemaScript}\n</head>`
+    );
+}
+
 function createPageHtml(template, page) {
     let html = template;
 
@@ -110,7 +176,9 @@ async function writePage(template, page) {
 }
 
 async function main() {
-    const template = await fs.readFile(templatePath, 'utf8');
+    const template = removeHomepageSchema(
+        await fs.readFile(templatePath, 'utf8')
+    );
 
     for (const page of publicPages) {
         await writePage(template, {
@@ -128,6 +196,14 @@ async function main() {
             canonical: null,
         });
     }
+
+    await fs.writeFile(
+        templatePath,
+        injectHomepageSchema(template),
+        'utf8'
+    );
+
+    console.log('Homepage-only business structured data added.');
 
     console.log('Page-specific SEO HTML generation completed.');
 }

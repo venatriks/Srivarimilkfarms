@@ -1,16 +1,12 @@
 import React from 'react';
-import { 
-  ShieldCheck, FlaskConical, Snowflake, Truck, Award, 
-  CheckCircle2, XCircle, Download, FileText, Sparkles, Leaf, Milk, RefreshCw 
+import {
+  ShieldCheck, FlaskConical, Snowflake, Truck, Award,
+  CheckCircle2, XCircle, Download, FileText, Sparkles, Leaf, Milk, RefreshCw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const Quality = () => {
-  const { showToast } = useApp();
-
-  const handleDownload = (certName) => {
-    showToast(`Downloading official ${certName} certificate PDF...`);
-  };
+  const { } = useApp();
 
   const steps = [
     {
@@ -52,18 +48,20 @@ export const Quality = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-12 sm:space-y-16">
-      
+
       {/* Page Header */}
       <div className="text-center max-w-3xl mx-auto space-y-3 sm:space-y-4">
         <span className="px-3.5 py-1.5 rounded-full bg-[#0F3E2E]/10 text-[#0F3E2E] text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-[#0F3E2E]/20 inline-flex items-center space-x-1.5">
           <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#D4AF37]" />
-          <span>NABL Accredited Quality Protocol</span>
+          <span>Our Quality Practices</span>
         </span>
         <h1 className="font-serif-display text-3xl sm:text-4xl md:text-5xl font-bold text-[#0F3E2E]">
           From Farm to Bottle: The Pure Dairy Cycle
         </h1>
         <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-          We combine ancient Vedic cattle care traditions with high-precision food science. Learn how every drop of Srivari milk is tested, chilled, and delivered unadulterated.
+          Learn about our dairy farm practices, from cattle care and hygienic
+          milking to milk chilling, packaging and doorstep delivery.
+          Laboratory reports and certifications will be shared when available.
         </p>
       </div>
 
@@ -71,22 +69,24 @@ export const Quality = () => {
       <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/30">
         <img
           src={`${import.meta.env.BASE_URL}images/quality_lab.jpg`}
-          alt="Srivari Quality Testing Laboratory"
+          alt="Srivari Dairy Quality Practices"
           className="w-full h-72 sm:h-80 md:h-96 object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F3E2E] via-[#0F3E2E]/50 to-transparent" />
         <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h3 className="font-serif-display text-xl sm:text-2xl font-bold">NABL Accredited Food Testing Lab</h3>
-            <p className="text-xs text-emerald-100/90 mt-0.5 sm:mt-1">Daily batch certificate generated before morning dispatch.</p>
+            <h3 className="font-serif-display text-xl sm:text-2xl font-bold">
+              Laboratory Testing – Coming Soon
+            </h3>
+            <p className="text-xs text-emerald-100/90 mt-1">
+              Genuine laboratory reports will be shared once testing is completed
+              and the reports are officially available.
+            </p>
           </div>
-          <button
-            onClick={() => handleDownload("Daily NABL Milk Analysis")}
-            className="w-full sm:w-auto px-5 py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-amber-400 transition-all flex items-center justify-center space-x-2 shrink-0 shadow-lg"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Today's Test Report</span>
-          </button>
+
+          <span className="px-4 py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold uppercase tracking-wider shrink-0">
+            Reports Coming Soon
+          </span>
         </div>
       </div>
 
@@ -103,7 +103,7 @@ export const Quality = () => {
           {steps.map((step, idx) => {
             const IconComp = step.icon;
             return (
-              <div 
+              <div
                 key={idx}
                 className="bg-white p-5 sm:p-8 rounded-3xl border border-[#0F3E2E]/10 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 hover:shadow-xl transition-all duration-300"
               >
@@ -111,7 +111,7 @@ export const Quality = () => {
                   <span className="font-serif-display text-2xl sm:text-4xl font-bold text-[#D4AF37] opacity-80 shrink-0">
                     {step.num}
                   </span>
-                  
+
                   <div className="space-y-2 min-w-0">
                     <div className="flex items-center space-x-2.5 sm:space-x-3">
                       <div className="p-1.5 sm:p-2 rounded-xl bg-[#0F3E2E]/10 text-[#0F3E2E] shrink-0">
@@ -140,17 +140,18 @@ export const Quality = () => {
 
       {/* COMPARISON TABLE: Srivari A2 Milk vs Standard Packet Milk */}
       <div className="bg-white rounded-3xl border border-[#0F3E2E]/10 shadow-xl overflow-hidden">
-        <div className="p-5 sm:p-8 bg-[#0F3E2E] text-white border-b border-[#D4AF37]/30">
+        <div>
           <h3 className="font-serif-display text-xl sm:text-2xl font-bold">
-            Srivari Raw A2 Milk vs Commercial Packet Milk
+            Our Dairy Quality Practices
           </h3>
           <p className="text-xs text-emerald-100/90 mt-1">
-            Understanding why unprocessed farm milk is vastly superior in nutrition and digestibility.
-          </p>
-          <p className="text-[11px] text-[#DFB33F] mt-2 block sm:hidden">
-            ← Scroll horizontally to view complete comparison →
+            We are working towards making genuine laboratory reports available.
           </p>
         </div>
+
+        <span className="px-4 py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold uppercase tracking-wider shrink-0">
+          Reports Coming Soon
+        </span>
 
         <div className="overflow-x-auto touch-pan-x">
           <table className="min-w-[620px] w-full text-left text-xs">
@@ -226,63 +227,83 @@ export const Quality = () => {
         </div>
       </div>
 
-      {/* DOWNLOAD CERTIFICATES SECTION */}
+      {/* LAB REPORTS & CERTIFICATIONS - COMING SOON */}
       <div className="bg-gradient-to-br from-[#0F3E2E] to-[#18523f] text-white p-6 sm:p-10 md:p-12 rounded-3xl border border-[#D4AF37]/40 shadow-2xl space-y-6 sm:space-y-8">
+
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest">Public Verification</span>
+          <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest">
+            Public Verification
+          </span>
+
           <h2 className="font-serif-display text-2xl sm:text-3xl font-bold">
-            Download Lab & Accreditation Certificates
+            Lab Reports & Certifications
           </h2>
+
           <p className="text-xs text-emerald-100/90">
-            We believe in 100% transparency. Access our official regulatory accreditations below.
+            We are working towards making genuine laboratory reports and
+            applicable certifications available. Documents will be published
+            here once officially issued and available for verification.
           </p>
+
+          <span className="inline-block mt-3 px-4 py-1.5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/60 text-[#D4AF37] text-xs font-bold uppercase tracking-wider">
+            Coming Soon
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          
-          <div className="bg-white/10 p-5 sm:p-6 rounded-2xl border border-white/20 backdrop-blur-md space-y-4 flex flex-col justify-between">
-            <div className="space-y-2">
-              <FileText className="w-7 h-7 sm:w-8 sm:h-8 text-[#D4AF37]" />
-              <h4 className="font-bold text-sm text-white">FSSAI Food Safety License</h4>
-              <p className="text-[11px] text-emerald-200">Lic No: 11224333000189 • Central Food Safety Compliance</p>
+
+          <div className="bg-white/10 p-5 sm:p-6 rounded-2xl border border-white/20 backdrop-blur-md space-y-4">
+            <FileText className="w-8 h-8 text-[#D4AF37]" />
+
+            <div>
+              <h4 className="font-bold text-sm text-white">
+                FSSAI License
+              </h4>
+              <p className="text-[11px] text-emerald-200 mt-2">
+                Applicable food safety licensing information will be published
+                after the license is officially issued.
+              </p>
             </div>
-            <button
-              onClick={() => handleDownload("FSSAI Safety Registration")}
-              className="w-full py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors flex items-center justify-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Certificate</span>
-            </button>
+
+            <span className="inline-block text-xs font-bold text-[#D4AF37]">
+              Coming Soon
+            </span>
           </div>
 
-          <div className="bg-white/10 p-5 sm:p-6 rounded-2xl border border-white/20 backdrop-blur-md space-y-4 flex flex-col justify-between">
-            <div className="space-y-2">
-              <Award className="w-7 h-7 sm:w-8 sm:h-8 text-[#D4AF37]" />
-              <h4 className="font-bold text-sm text-white">NABL Accredited Lab Audit</h4>
-              <p className="text-[11px] text-emerald-200">Independent 32-Parameter Chemical & Microbiological Report</p>
+          <div className="bg-white/10 p-5 sm:p-6 rounded-2xl border border-white/20 backdrop-blur-md space-y-4">
+            <Award className="w-8 h-8 text-[#D4AF37]" />
+
+            <div>
+              <h4 className="font-bold text-sm text-white">
+                Laboratory Test Reports
+              </h4>
+              <p className="text-[11px] text-emerald-200 mt-2">
+                Genuine laboratory results and tested parameters will be
+                displayed when reports become available.
+              </p>
             </div>
-            <button
-              onClick={() => handleDownload("NABL Audit Report")}
-              className="w-full py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors flex items-center justify-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Report</span>
-            </button>
+
+            <span className="inline-block text-xs font-bold text-[#D4AF37]">
+              Coming Soon
+            </span>
           </div>
 
-          <div className="bg-white/10 p-5 sm:p-6 rounded-2xl border border-white/20 backdrop-blur-md space-y-4 flex flex-col justify-between sm:col-span-2 lg:col-span-1">
-            <div className="space-y-2">
-              <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8 text-[#D4AF37]" />
-              <h4 className="font-bold text-sm text-white">100% DNA Breed Authenticity</h4>
-              <p className="text-[11px] text-emerald-200">Certified Indigenous Gir & Sahiwal Herd Genotype Certificate</p>
+          <div className="bg-white/10 p-5 sm:p-6 rounded-2xl border border-white/20 backdrop-blur-md space-y-4 sm:col-span-2 lg:col-span-1">
+            <ShieldCheck className="w-8 h-8 text-[#D4AF37]" />
+
+            <div>
+              <h4 className="font-bold text-sm text-white">
+                Breed Verification
+              </h4>
+              <p className="text-[11px] text-emerald-200 mt-2">
+                Breed verification documents will be shared if and when
+                authentic supporting certificates are available.
+              </p>
             </div>
-            <button
-              onClick={() => handleDownload("DNA Breed Certificate")}
-              className="w-full py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors flex items-center justify-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Certificate</span>
-            </button>
+
+            <span className="inline-block text-xs font-bold text-[#D4AF37]">
+              Coming Soon
+            </span>
           </div>
 
         </div>

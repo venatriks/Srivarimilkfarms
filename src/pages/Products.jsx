@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Search, Filter, Star, Milk, ShieldCheck, FlaskConical, 
-  Plus, Sparkles, Check, ChevronDown, RefreshCw, Lock, User 
+import {
+  Search, Filter, Star, Milk, ShieldCheck, FlaskConical,
+  Plus, Sparkles, Check, ChevronDown, RefreshCw, Lock, User
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -17,8 +17,9 @@ export const Products = () => {
   // Filter products
   const filteredProducts = products.filter(p => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   }).sort((a, b) => {
     if (sortBy === 'price-low') return a.price - b.price;
@@ -29,36 +30,37 @@ export const Products = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 sm:space-y-10">
-      
+
       {/* Page Header */}
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <span className="px-3.5 py-1 rounded-full bg-[#0F3E2E]/10 text-[#0F3E2E] text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-[#0F3E2E]/20 inline-block">
-          100% Organic Farm Fresh Range
+          Farm-Fresh Dairy Products
         </span>
         <h1 className="font-serif-display text-3xl sm:text-4xl md:text-5xl font-bold text-[#0F3E2E]">
-          Our Pure A2 Dairy Products
+          Dairy Products | Indigenous Cow & Buffalo Milk | Srivari Milk Farms
         </h1>
         <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-          From unpasteurized raw Gir cow A2 milk to traditional Vedic Bilona ghee, earthen pot curd, and artisanal paneer. Every product comes with lab purity test metrics.
+          Explore our dairy products, including desi cow milk, buffalo milk,
+          traditional Vedic Bilona ghee, fresh paneer and curd.
+          We are working towards making genuine laboratory reports available.
         </p>
       </div>
 
       {/* Search & Category Filter Bar */}
       <div className="bg-white p-3.5 sm:p-4 rounded-3xl border border-[#0F3E2E]/10 shadow-md space-y-3 sm:space-y-4">
-        
+
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4">
-          
+
           {/* Category Tabs */}
           <div className="flex items-center space-x-2 overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0 scrollbar-none touch-pan-x">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 sm:px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-                  selectedCategory === cat
-                    ? 'bg-[#0F3E2E] text-white shadow-md'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                }`}
+                className={`px-3.5 sm:px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${selectedCategory === cat
+                  ? 'bg-[#0F3E2E] text-white shadow-md'
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  }`}
               >
                 {cat}
               </button>
@@ -67,7 +69,7 @@ export const Products = () => {
 
           {/* Search Input & Sort Dropdown */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
-            
+
             <div className="relative flex-1 sm:w-64">
               <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
@@ -187,27 +189,17 @@ export const Products = () => {
                     {product.description}
                   </p>
 
-                  {/* Lab Stats Badge Strip */}
-                  <div className="bg-[#FDFBF7] p-2.5 sm:p-3 rounded-2xl border border-stone-200 grid grid-cols-3 gap-1.5 sm:gap-2 text-[11px] text-center">
+                  {/* Lab Reports Availability */}
+                  <div className="bg-[#FDFBF7] p-3 rounded-2xl border border-stone-200 flex items-center gap-2.5">
+                    <FlaskConical className="w-5 h-5 text-[#D4AF37] shrink-0" />
                     <div>
-                      <span className="text-stone-400 block text-[9px] uppercase">Fat %</span>
-                      <span className="font-bold text-[#0F3E2E]">{product.labParameters?.fatPercentage}</span>
+                      <p className="text-xs font-semibold text-[#0F3E2E]">
+                        Laboratory Reports
+                      </p>
+                      <p className="text-[11px] text-stone-500">
+                        Coming Soon
+                      </p>
                     </div>
-                    <div>
-                      <span className="text-stone-400 block text-[9px] uppercase">SNF %</span>
-                      <span className="font-bold text-[#0F3E2E]">{product.labParameters?.snfPercentage}</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400 block text-[9px] uppercase">A2 Beta Casein</span>
-                      <span className="font-bold text-emerald-700">100% DNA</span>
-                    </div>
-                  </div>
-
-                  {/* Nutritional Micro List */}
-                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] text-stone-500 pt-1">
-                    <span>Protein: <strong className="text-stone-700">{product.nutritionalInfo?.protein || '3.4 g'}</strong></span>
-                    <span>Calcium: <strong className="text-stone-700">{product.nutritionalInfo?.calcium || '125 mg'}</strong></span>
-                    <span>Energy: <strong className="text-stone-700">{product.nutritionalInfo?.calories || product.nutritionalInfo?.energy || '68 kcal'}</strong></span>
                   </div>
 
                 </div>
