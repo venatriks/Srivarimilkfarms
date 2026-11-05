@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 export const AboutUs = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-12 sm:space-y-16">
-      
+
       {/* Hero Header */}
       <div className="text-center max-w-3xl mx-auto space-y-3 sm:space-y-4">
         <span className="px-3.5 py-1.5 rounded-full bg-[#0F3E2E]/10 text-[#0F3E2E] text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-[#0F3E2E]/20 inline-flex items-center space-x-1.5">
@@ -16,7 +16,7 @@ export const AboutUs = () => {
           Preserving Pure Dairy Wisdom for Generations
         </h1>
         <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-          Founded on 450 acres of certified organic pastureland, Srivari Milk Farms was created to revive authentic A2 Desi Cow milk in its unadulterated state.
+          Srivari Milk Farms is dedicated to caring for indigenous cattle and producing fresh dairy products for families. Our farm works with Gir, Sahiwal and other indigenous cow breeds, along with buffaloes. We combine traditional dairy practices, hygienic milk handling and a commitment to quality.
         </p>
       </div>
 
@@ -76,9 +76,11 @@ export const AboutUs = () => {
           <div className="w-12 h-12 rounded-2xl bg-[#0F3E2E]/10 text-[#0F3E2E] flex items-center justify-center">
             <ShieldCheck className="w-6 h-6 text-[#D4AF37]" />
           </div>
-          <h3 className="font-serif-display text-lg sm:text-xl font-bold text-[#0F3E2E]">Zero Plastic Footprint</h3>
+          <h3 className="font-serif-display text-lg sm:text-xl font-bold text-[#0F3E2E]">
+            Reusable Glass Bottle Programme
+          </h3>
           <p className="text-xs text-stone-600 leading-relaxed">
-            We operate a 100% glass bottle loop. Over 600,000 plastic pouches are eliminated from landfills every single year through our bottle return program.
+            We use glass bottles for milk packaging and encourage customers to return empty bottles for cleaning and reuse, helping reduce single-use packaging waste.
           </p>
         </div>
 
@@ -86,9 +88,11 @@ export const AboutUs = () => {
           <div className="w-12 h-12 rounded-2xl bg-[#0F3E2E]/10 text-[#0F3E2E] flex items-center justify-center">
             <Award className="w-6 h-6 text-[#D4AF37]" />
           </div>
-          <h3 className="font-serif-display text-lg sm:text-xl font-bold text-[#0F3E2E]">NABL Accredited Purity</h3>
+          <h3 className="font-serif-display text-lg sm:text-xl font-bold text-[#0F3E2E]">
+            Our Commitment to Quality
+          </h3>
           <p className="text-xs text-stone-600 leading-relaxed">
-            Every batch passes 32 stringent quality checks including Somatic Cell Count, pesticide residues, and 100% DNA A2 protein verification.
+            We focus on hygienic milking, rapid milk chilling, careful packaging and responsible handling to maintain the quality and freshness of our dairy products.
           </p>
         </div>
       </div>

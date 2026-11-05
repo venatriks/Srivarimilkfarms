@@ -70,7 +70,9 @@ export const ContactUs = () => {
               <h4 className="font-bold text-sm sm:text-base">Farm Visit Hours</h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Sunday: 7:00 AM - 11:00 AM<br />
+              Monday - Sunday:<br />
+              6:00 AM - 9:00 AM<br />
+              5:00 PM - 7:00 PM<br />
               (Prior registration required for milking tour)
             </p>
           </div>
