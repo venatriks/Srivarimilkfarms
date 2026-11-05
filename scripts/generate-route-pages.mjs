@@ -71,6 +71,8 @@ const businessSchema = {
     '@id': 'https://srivarimilkfarms.com/#business',
     name: 'Srivari Milk Farms',
     url: 'https://srivarimilkfarms.com/',
+    image: 'https://srivarimilkfarms.com/images/logo.png',
+    priceRange: '₹65–₹1,400',
     telephone: '+917676160673',
     description:
         'Dairy farm in D.Hirehal, Anantapur district, Andhra Pradesh, offering A2 desi cow milk, buffalo milk, traditional Vedic Bilona ghee, fresh paneer and curd.',
