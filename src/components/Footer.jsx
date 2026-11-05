@@ -80,7 +80,7 @@ export const Footer = () => {
             <div className="pt-2 text-[11px] sm:text-xs text-[#DFB33F] font-mono space-y-1">
               <p>FSSAI Lic No: 11224333000189</p>
               <p>NABL Accredited Partner Lab ID: IND-NABL-8942</p>
-              <p className="text-emerald-200 font-sans text-[11px]">ಶ್ರೀವಾರಿ ಮಿಲ್ಕ್ ಫಾರ್ಮ್ಸ್ • శ్రీ వారి ಮిల్ಕ್ ಫಾರ್ಮ್ಸ್</p>
+              <p className="text-emerald-200 font-sans text-[11px]">ಶ್ರೀ ವಾರಿ ಮಿಲ್ಕ್ ಫಾರ್ಮ್ಸ • శ్రీ వారి మిల్క్ ఫార్మ్స్</p>
             </div>
           </div>
 
