@@ -30,7 +30,7 @@ export const ContactUs = () => {
           Get in Touch
         </span>
         <h1 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#0F3E2E]">
-          Visit Our Organic Farm & Help Desk
+          Visit Srivari Milk Farms & Get in Touch
         </h1>
         <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
           Have questions about your morning delivery schedule, glass bottle deposits, or want to schedule a weekend farm tour with your family?
@@ -59,8 +59,8 @@ export const ContactUs = () => {
               <h4 className="font-bold text-sm sm:text-base">Customer Helpline</h4>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Phone: +91 7022776637<br />
-              WhatsApp: +91 7022776637 (24/7 Delivery Support)
+              Phone: +91 7676160673<br />
+              WhatsApp: +91 7676160673 (24/7 Delivery Support)
             </p>
           </div>
 
