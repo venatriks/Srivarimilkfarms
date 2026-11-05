@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.srivarimilkfarms.com/sitemap.xml
+Sitemap: https://srivarimilkfarms.com/sitemap.xml
