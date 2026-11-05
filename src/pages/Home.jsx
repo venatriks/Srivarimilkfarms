@@ -26,8 +26,11 @@ export const Home = () => {
         {/* Background Image with Gradient Overlay */}
         <div className="absolute inset-0 z-0">
           <img
-            src={`${import.meta.env.BASE_URL}images/hero.jpg`}
+            src={`${import.meta.env.BASE_URL}images/hero.webp`}
             alt="Srivari Milk Farms Landscape"
+            fetchPriority='high'
+            loading='eager'
+            decoding='async'
             className="w-full h-full object-cover object-center scale-105 transform filter brightness-90"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#072218]/95 via-[#0F3E2E]/85 to-transparent" />
