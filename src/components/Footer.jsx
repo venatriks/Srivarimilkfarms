@@ -27,20 +27,20 @@ export const Footer = () => {
           <div className="flex items-center space-x-3 bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
             <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8 text-[#DFB33F] shrink-0" />
             <div>
-              <h5 className="text-xs font-bold text-white uppercase tracking-wider">Zero Chemical</h5>
-              <p className="text-[11px] text-emerald-200">No Antibiotics or Hormones</p>
+              <h5 className="text-xs font-bold text-white uppercase tracking-wider">Farm-Focused Care</h5>
+              <p className="text-[11px] text-emerald-200">Responsible Cattle Care</p>
             </div>
           </div>
           <div className="flex items-center space-x-3 bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
             <Award className="w-7 h-7 sm:w-8 sm:h-8 text-[#DFB33F] shrink-0" />
             <div>
-              <h5 className="text-xs font-bold text-white uppercase tracking-wider">DNA Certified</h5>
-              <p className="text-[11px] text-emerald-200">100% Pure A2/A2 Beta Casein</p>
+              <h5 className="text-xs font-bold text-white uppercase tracking-wider">A2 Cow Milk</h5>
+              <p className="text-[11px] text-emerald-200">From Indigenous Dairy Cows</p>
             </div>
           </div>
           <div className="flex items-center space-x-3 bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-[#DFB33F] shrink-0 bg-white">
-              <img src={`${import.meta.env.BASE_URL}images/logo_Main.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
+              <img src={`${import.meta.env.BASE_URL}images/logo_Main.webp`} alt="Srivari Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h5 className="text-xs font-bold text-white uppercase tracking-wider">Glass Bottle</h5>
@@ -50,7 +50,7 @@ export const Footer = () => {
           <div className="flex items-center space-x-3 bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
             <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-[#DFB33F] shrink-0" />
             <div>
-              <h5 className="text-xs font-bold text-white uppercase tracking-wider">5 AM Delivery</h5>
+              <h5 className="text-xs font-bold text-white uppercase tracking-wider">5:30 AM Delivery</h5>
               <p className="text-[11px] text-emerald-200">Fresh morning door dispatch</p>
             </div>
           </div>
@@ -63,23 +63,23 @@ export const Footer = () => {
           <div className="sm:col-span-2 lg:col-span-2 space-y-4">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#DFB33F] shadow-md bg-[#042B1B] shrink-0">
-                <img src={`${import.meta.env.BASE_URL}images/logo_Main.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
+                <img src={`${import.meta.env.BASE_URL}images/logo_Main.webp`} alt="Srivari Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                 <span className="font-serif-display text-xl sm:text-2xl font-bold text-white tracking-wide block">
                   SRIVARI MILK FARMS
                 </span>
                 <span className="text-[9px] sm:text-[10px] text-[#DFB33F] font-semibold tracking-wider uppercase block">
-                  Pure from Our Farm • 100% A2 Cow & Buffalo Milk
+                  Fresh Cow & Buffalo Milk • Farm to Home
                 </span>
               </div>
             </div>
             <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed pr-0 sm:pr-4">
-              Preserving Vedic dairy wisdom with modern NABL-accredited purity standards. Our free-range Cows & Buffalo feast on organic hydroponic fodder to produce rich, creamy, unprocessed A2 milk.
+              At Srivari Milk Farms, we combine traditional dairy practices with hygienic milking, fresh fodder, prompt chilling, and careful handling to deliver fresh cow and buffalo milk.
             </p>
             <div className="pt-2 text-[11px] sm:text-xs text-[#DFB33F] font-mono space-y-1">
-              <p>FSSAI Lic No: 11224333000189</p>
-              <p>NABL Accredited Partner Lab ID: IND-NABL-8942</p>
+              <p>FSSAI Licensing – Application Planned</p>
+              <p>Independent Laboratory Reports – Coming Soon</p>
               <p className="text-emerald-200 font-sans text-[11px]">ಶ್ರೀ ವಾರಿ ಮಿಲ್ಕ್ ಫಾರ್ಮ್ಸ • శ్రీ వారి మిల్క్ ఫార్మ్స్</p>
             </div>
           </div>

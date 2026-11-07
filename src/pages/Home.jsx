@@ -167,6 +167,8 @@ export const Home = () => {
                 <img
                   src={product.image}
                   alt={product.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <span className="absolute top-4 left-4 bg-[#0F3E2E] text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-[#D4AF37]/50 shadow-md">
@@ -211,7 +213,7 @@ export const Home = () => {
                     </div>
                     <div>
                       <span className="text-stone-500 font-medium">A2 Purity: </span>
-                      <span className="font-bold text-emerald-700">100%</span>
+                      <span className="font-bold text-emerald-700">Coming Soon</span>
                     </div>
                   </div>
                 </div>
@@ -356,8 +358,10 @@ export const Home = () => {
 
           <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-[#0F3E2E]/10">
             <img
-              src={`${import.meta.env.BASE_URL}images/quality_lab.jpg`}
-              alt="NABL Accredited Quality Testing Lab"
+              src={`${import.meta.env.BASE_URL}images/quality_lab.webp`}
+              alt="Srivari Milk Farms Quality Practices"
+              loading="lazy"
+              decoding='async'
               className="w-full h-80 sm:h-96 lg:h-[450px] object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0F3E2E] via-transparent to-transparent" />
@@ -365,10 +369,10 @@ export const Home = () => {
             <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6 bg-white/95 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-[#D4AF37]/40 shadow-xl">
               <div className="flex items-center space-x-3 mb-1.5 sm:mb-2">
                 <Award className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37] shrink-0" />
-                <h4 className="font-serif-display text-sm sm:text-base font-bold text-[#0F3E2E]">NABL Accredited Laboratory Tested</h4>
+                <h4 className="font-serif-display text-sm sm:text-base font-bold text-[#0F3E2E]">Laboratory Testing – Coming Soon</h4>
               </div>
               <p className="text-[11px] sm:text-xs text-stone-600 leading-relaxed">
-                Zero tolerance for milk adulteration. Every single batch is verified for Fat %, SNF %, Somatic Cell Count, and 100% DNA Certified A2 Beta-Casein.
+                We prioritize hygienic milk handling and quality-focused farm practices. Independent laboratory testing and verified reports are planned and will be shared when available.
               </p>
             </div>
           </div>
@@ -376,10 +380,10 @@ export const Home = () => {
           <div className="space-y-5 sm:space-y-6">
             <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest">Uncompromising Standards</span>
             <h2 className="font-serif-display text-2xl sm:text-3xl md:text-4xl font-bold text-[#0F3E2E]">
-              Why Srivari A2 Milk is 100% Pure & Unadulterated
+              Our Commitment to Fresh A2 Cow Milk
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-              Unlike commercial packet milk which undergoes severe high-heat processing, homogenization, and synthetic fat adjustments, Srivari milk remains in its raw, natural state.
+              At Srivari Milk Farms, we focus on responsible cattle care, hygienic milking, prompt chilling, and careful handling to deliver fresh milk from our farm.
             </p>
 
             <div className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
@@ -472,6 +476,8 @@ export const Home = () => {
                 <img
                   src={item.avatar}
                   alt={item.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-10 h-10 rounded-full object-cover border-2 border-[#D4AF37]"
                 />
                 <div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Milk, Truck, Package, Plus, Edit, Check, Database,
@@ -6,13 +6,14 @@ import {
   Download, Upload, RefreshCw, Trash2, UserPlus, Lock, Key, Activity, LogIn, ArrowLeft, MessageSquare, Briefcase, UserCheck, ShoppingBag, Eye, CreditCard, Tag, Filter
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
   const {
     user,
     authLoading,
-    products, updateProductStockOrPrice, addProduct, deleteProduct,
+    products, updateProductStockOrPrice, adjustProductInventory, addProduct, deleteProduct,
     distributionList, updateDistributionStatus,
     dbUsers, addDbUser, updateDbUser, deleteDbUser,
     orders,
@@ -25,6 +26,103 @@ export const AdminDashboard = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState('distribution'); // 'distribution' | 'users' | 'products' | 'queries' | 'employees' | 'onetime-orders' | 'database' | 'add'
+  // Inventory Dashboard state
+  const [inventorySummary, setInventorySummary] = useState([]);
+  const [inventoryMovements, setInventoryMovements] = useState([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryError, setInventoryError] = useState('');
+  const [selectedInventoryProduct, setSelectedInventoryProduct] = useState('');
+
+  // Track the latest inventory request to prevent stale responses.
+  const inventoryRequestId = useRef(0);
+
+  // Inventory Dashboard summary calculations
+  const inventoryTotals = inventorySummary.reduce(
+    (totals, product) => {
+      totals.physical += Number(product.physical_stock || 0);
+      totals.reserved += Number(product.reserved_stock || 0);
+      totals.available += Number(product.available_stock || 0);
+
+      if (product.low_stock) {
+        totals.lowStock += 1;
+      }
+
+      return totals;
+    },
+    {
+      physical: 0,
+      reserved: 0,
+      available: 0,
+      lowStock: 0
+    }
+  );
+
+  // Fetch inventory summary and movement history
+  const fetchInventoryData = useCallback(async (productId = '') => {
+    const requestId = ++inventoryRequestId.current;
+    setInventoryLoading(true);
+    setInventoryError('');
+
+    try {
+      const [summaryResult, movementsResult] = await Promise.all([
+        supabase.rpc('admin_get_inventory_summary'),
+        supabase.rpc('admin_get_inventory_movements', {
+          p_product_id: productId || null
+        })
+      ]);
+
+      // Ignore responses from outdated inventory requests.
+      if (requestId !== inventoryRequestId.current) {
+        return;
+      }
+
+      if (summaryResult.error) {
+        throw summaryResult.error;
+      }
+
+      if (movementsResult.error) {
+        throw movementsResult.error;
+      }
+
+      setInventorySummary(summaryResult.data || []);
+      setInventoryMovements(movementsResult.data || []);
+    } catch (error) {
+      // Ignore errors from outdated inventory requests.
+      if (requestId !== inventoryRequestId.current) {
+        return;
+      }
+
+      console.error('Inventory dashboard fetch failed:', error);
+
+      setInventoryError(
+        error.message || 'Unable to load inventory data.');
+
+      setInventorySummary([]);
+      setInventoryMovements([]);
+    } finally {
+      // Only the latest request can reset the loading indicator.
+      if (requestId === inventoryRequestId.current) {
+        setInventoryLoading(false);
+      }
+    }
+
+  }, []);
+
+  // Load inventory when the administrator opens the Inventory tab
+  useEffect(() => {
+    if (activeTab !== 'inventory' || authLoading || !user?.id) {
+      return;
+    }
+
+    fetchInventoryData(selectedInventoryProduct);
+  }, [
+    activeTab,
+    authLoading,
+    user?.id,
+    selectedInventoryProduct,
+    fetchInventoryData
+  ]);
+
   const [searchDist, setSearchDist] = useState('');
   const [searchUsers, setSearchUsers] = useState('');
   const [searchQueries, setSearchQueries] = useState('');
@@ -67,14 +165,83 @@ export const AdminDashboard = () => {
   // Editing User State
   const [editingUserId, setEditingUserId] = useState(null);
 
+  // Product quality parameter editing
+  const [editingQualityProductId, setEditingQualityProductId] = useState(null);
+  const [qualityDraft, setQualityDraft] = useState({});
+  const [savingQuality, setSavingQuality] = useState(false);
+
+  // Inventory adjustment state
+  const [stockDrafts, setStockDrafts] = useState({});
+  const [savingStockProductId, setSavingStockProductId] = useState(null);
+  const [editingStockProductId, setEditingStockProductId] = useState(null);
+
+  // Save an audited inventory adjustment
+  const saveStockAdjustment = async (prod) => {
+    if (savingStockProductId !== null) return;
+
+    const draft = stockDrafts[prod.id];
+
+    if (!draft) {
+      showToast('No stock adjustment entered.', 'error');
+      return;
+    }
+
+    const quantity = Number(draft.quantity);
+    const reason = (draft.reason || '').trim();
+
+    if (
+      String(draft.quantity).trim() === '' ||
+      !Number.isSafeInteger(quantity) ||
+      quantity < 0
+    ) {
+      showToast('Enter a valid non-negative whole number.', 'error');
+      return;
+    }
+
+    if (!reason) {
+      showToast('Enter a reason for the stock adjustment.', 'error');
+      return;
+    }
+
+    if (quantity === prod.stockCount) {
+      showToast('Stock quantity is unchanged.', 'error');
+      return;
+    }
+
+    setSavingStockProductId(prod.id);
+
+    try {
+      const success = await adjustProductInventory(
+        prod.id,
+        quantity,
+        reason
+      );
+
+      if (success) {
+        setEditingStockProductId(null);
+        setStockDrafts(prev => {
+          const next = { ...prev };
+          delete next[prod.id];
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error('Stock adjustment failed:', error);
+      showToast('Unable to save stock adjustment.', 'error');
+    } finally {
+      setSavingStockProductId(null);
+    }
+  };
+
   // Add Product Form State
   const [newProd, setNewProd] = useState({
     name: '',
     category: 'Raw Milk',
     price: 80,
+    initialStock: '0',
     unit: '1 Liter Bottle',
     description: '',
-    image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`,
+    image: `${import.meta.env.BASE_URL}images/a2_milk.webp`,
     protein: '3.4 g',
     calcium: '125 mg',
     calories: '68 kcal'
@@ -128,6 +295,55 @@ export const AdminDashboard = () => {
     );
   }
 
+  // Start editing a product's quality parameters
+  const startQualityEdit = (prod) => {
+    setEditingQualityProductId(prod.id);
+    setQualityDraft({ ...(prod.labParameters || {}) });
+  };
+
+  // Update a field locally without saving to Supabase
+  const changeQualityField = (field, value) => {
+    setQualityDraft(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Cancel unsaved changes
+  const cancelQualityEdit = () => {
+    setEditingQualityProductId(null);
+    setQualityDraft({});
+  };
+
+  // Save quality parameters to Supabase
+  const saveQualityParameters = async (prod) => {
+    if (savingQuality) return;
+
+    setSavingQuality(true);
+
+    try {
+      const updatedParameters = {
+        ...(prod.labParameters || {}),
+        ...qualityDraft
+      };
+
+      const success = await updateProductStockOrPrice(
+        prod.id,
+        { labParameters: updatedParameters }
+      );
+
+      if (success) {
+        setEditingQualityProductId(null);
+        setQualityDraft({});
+      }
+    } catch (error) {
+      console.error("Quality parameter update failed:", error);
+      showToast("Unable to save quality parameters.", "error");
+    } finally {
+      setSavingQuality(false);
+    }
+  };
+
   // Image Upload Handler for "Add New Product"
   const handleAddNewProductImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -164,13 +380,29 @@ export const AdminDashboard = () => {
     }
   };
 
-  const handleAddSubmit = (e) => {
+  const handleAddSubmit = async (e) => {
     e.preventDefault();
     if (!newProd.name || !newProd.description) {
       showToast("Please fill in all product details", "error");
       return;
     }
+    const initialStock = Number(newProd.initialStock);
+
+    if (
+      String(newProd.initialStock).trim() === '' ||
+      !Number.isSafeInteger(initialStock) ||
+      initialStock < 0 ||
+      initialStock > 2147483647
+    ) {
+      showToast(
+        'Enter a valid non-negative whole number for initial stock.',
+        'error'
+      );
+      return;
+    }
+
     const productData = {
+      initialStock,
       name: newProd.name,
       category: newProd.category,
       price: newProd.price,
@@ -185,15 +417,21 @@ export const AdminDashboard = () => {
         fat: '4.6 g'
       }
     };
-    addProduct(productData);
+    const success = await addProduct(productData);
+
+    if (!success) {
+      return;
+    }
+
     setActiveTab('products');
     setNewProd({
       name: '',
       category: 'Raw Milk',
       price: 80,
+      initialStock: '0',
       unit: '1 Liter Bottle',
       description: '',
-      image: `${import.meta.env.BASE_URL}images/a2_milk.jpg`,
+      image: `${import.meta.env.BASE_URL}images/a2_milk.webp`,
       protein: '3.4 g',
       calcium: '125 mg',
       calories: '68 kcal'
@@ -299,7 +537,7 @@ export const AdminDashboard = () => {
   };
 
   const handlePrint = () => {
-    showToast("Opening Browser Print Dialog for 5 AM Dispatch Roster...", "info");
+    showToast("Opening Browser Print Dialog for 5:30 AM Delivery Roster...", "info");
     setTimeout(() => {
       window.print();
     }, 400);
@@ -334,7 +572,7 @@ export const AdminDashboard = () => {
             Srivari Milk Farms Control Portal
           </h1>
           <p className="text-xs text-emerald-200">
-            Persistent Database Management System • Customer Accounts, Admins, Inventory & 5 AM Dispatch Roster
+            Persistent Database Management System • Customer Accounts, Admins, Inventory & 5:30 AM Delivery Roster
           </p>
         </div>
 
@@ -414,7 +652,7 @@ export const AdminDashboard = () => {
 
       {/* Navigation Tabs Container - Responsive Layout with Zero Overflow */}
       <div className="bg-[#FBF9F3] p-2.5 rounded-3xl border border-stone-200/90 shadow-xs">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2">
 
           <button
             onClick={() => setActiveTab('distribution')}
@@ -458,6 +696,18 @@ export const AdminDashboard = () => {
           >
             <Package className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
             <span className="truncate">Products ({products.length})</span>
+          </button>
+
+          {/* Inventory Dashboard Tab */}
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'inventory'
+              ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+              : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+              }`}
+          >
+            <Package className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
+            <span className="truncate">Inventory</span>
           </button>
 
           <button
@@ -917,14 +1167,103 @@ export const AdminDashboard = () => {
                   </div>
 
                   <div>
-                    <label className="text-stone-500 block font-medium">Stock Units</label>
-                    <input
-                      type="number"
-                      value={prod.stockCount}
-                      onChange={(e) => updateProductStockOrPrice(prod.id, { stockCount: Number(e.target.value) })}
-                      className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-stone-300 font-bold text-[#042B1B]"
-                    />
+                    <label className="text-stone-500 block font-medium">
+                      Physical Stock
+                    </label>
+                    <p className="font-bold text-[#042B1B] py-1.5">
+                      {prod.stockCount} units
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingStockProductId(prod.id);
+                        setStockDrafts(prev => ({
+                          ...prev,
+                          [prod.id]: {
+                            quantity: String(prod.stockCount),
+                            reason: ''
+                          }
+                        }));
+                      }}
+                      className="text-xs font-bold text-[#0B422B] underline"
+                    >
+                      Edit Stock
+                    </button>
                   </div>
+
+                  {editingStockProductId === prod.id && (
+                    <div className="col-span-full space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                      <label className="block text-xs font-bold">
+                        New Physical Stock
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={stockDrafts[prod.id]?.quantity ?? ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setStockDrafts(prev => ({
+                            ...prev,
+                            [prod.id]: {
+                              ...prev[prod.id],
+                              quantity: value
+                            }
+                          }));
+                        }}
+                        className="w-full rounded-lg border border-stone-300 p-2"
+                      />
+
+                      <label className="block text-xs font-bold">
+                        Reason for Adjustment
+                      </label>
+                      <textarea
+                        value={stockDrafts[prod.id]?.reason ?? ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setStockDrafts(prev => ({
+                            ...prev,
+                            [prod.id]: {
+                              ...prev[prod.id],
+                              reason: value
+                            }
+                          }));
+                        }}
+                        placeholder="Example: Physical stock count correction"
+                        className="w-full rounded-lg border border-stone-300 p-2"
+                        rows={2}
+                      />
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={savingStockProductId !== null}
+                          onClick={() => saveStockAdjustment(prod)}
+                          className="rounded-lg bg-[#042B1B] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          {savingStockProductId === prod.id
+                            ? 'Saving...'
+                            : 'Save Adjustment'}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={savingStockProductId !== null}
+                          onClick={() => {
+                            setEditingStockProductId(null);
+                            setStockDrafts(prev => {
+                              const next = { ...prev };
+                              delete next[prod.id];
+                              return next;
+                            });
+                          }}
+                          className="rounded-lg border border-stone-300 px-4 py-2 text-xs font-bold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="text-stone-500 block font-medium">Protein</label>
@@ -972,6 +1311,76 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
 
+                {/* Product Quality Parameters Editor */}
+                <div className="mt-3 rounded-2xl border border-stone-200 bg-[#FDFBF7] p-3 sm:p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h5 className="text-sm font-bold text-[#042B1B]">
+                      Product Quality Parameters
+                    </h5>
+                    {editingQualityProductId !== prod.id && (
+                      <button
+                        type="button"
+                        onClick={() => startQualityEdit(prod)}
+                        className="px-3 py-1.5 rounded-lg bg-[#042B1B] text-white text-xs font-bold"
+                      >
+                        Edit Parameters
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {[
+                      ['fatPercentage', 'Fat (%)'],
+                      ['snfPercentage', 'SNF (%)'],
+                      ['a2CaseinPurity', 'A2 Purity'],
+                      ['addedWater', 'Added Water'],
+                      ['antibiotics', 'Antibiotics'],
+                      ['preservatives', 'Preservatives'],
+                      ['somaticCellCount', 'Somatic Cell Count'],
+                      ['chillingTemperature', 'Chilling Temperature']
+                    ].map(([field, label]) => (
+                      <div key={field} className="min-w-0">
+                        <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                          {label}
+                        </label>
+                        <input
+                          type="text"
+                          value={
+                            editingQualityProductId === prod.id
+                              ? (qualityDraft[field] ?? '')
+                              : (prod.labParameters?.[field] ?? '')
+                          }
+                          disabled={editingQualityProductId !== prod.id || savingQuality}
+                          onChange={(e) => changeQualityField(field, e.target.value)}
+                          placeholder="Not Available"
+                          className="w-full min-w-0 px-2.5 py-2 rounded-lg border border-stone-300 bg-white text-xs text-[#042B1B] disabled:bg-stone-100"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {editingQualityProductId === prod.id && (
+                    <div className="flex flex-wrap justify-end gap-2 mt-4">
+                      <button
+                        type="button"
+                        disabled={savingQuality}
+                        onClick={cancelQualityEdit}
+                        className="px-4 py-2 rounded-lg border border-stone-300 text-xs font-bold disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingQuality}
+                        onClick={() => saveQualityParameters(prod)}
+                        className="px-4 py-2 rounded-lg bg-[#042B1B] text-white text-xs font-bold disabled:opacity-50"
+                      >
+                        {savingQuality ? 'Saving...' : 'Save Quality Parameters'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between text-xs pt-2">
                   <button
                     onClick={() => updateProductStockOrPrice(prod.id, { inStock: !prod.inStock })}
@@ -996,6 +1405,314 @@ export const AdminDashboard = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* INVENTORY DASHBOARD */}
+      {activeTab === 'inventory' && (
+        <div className="bg-white rounded-3xl border border-[#042B1B]/10 shadow-md p-4 sm:p-6 space-y-6">
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="font-serif-display text-xl font-bold text-[#042B1B]">
+                Inventory Dashboard
+              </h3>
+              <p className="text-xs text-stone-500 mt-1">
+                Product prices, physical stock, reservations and availability.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => fetchInventoryData(selectedInventoryProduct)}
+              disabled={inventoryLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#042B1B] text-white text-xs font-bold disabled:opacity-50"
+            >
+              <RefreshCw className="w-4 h-4" />
+              {inventoryLoading ? 'Loading...' : 'Refresh Inventory'}
+            </button>
+          </div>
+
+          {/* Inventory Summary Cards */}
+          {!inventoryLoading && !inventoryError && (
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+              {[
+                {
+                  label: 'Physical Stock',
+                  value: inventoryTotals.physical,
+                  color: 'text-[#042B1B]'
+                },
+                {
+                  label: 'Reserved Stock',
+                  value: inventoryTotals.reserved,
+                  color: 'text-amber-700'
+                },
+                {
+                  label: 'Available Stock',
+                  value: inventoryTotals.available,
+                  color: 'text-emerald-700'
+                },
+                {
+                  label: 'Low Stock Products',
+                  value: inventoryTotals.lowStock,
+                  color: inventoryTotals.lowStock > 0
+                    ? 'text-red-600'
+                    : 'text-emerald-700'
+                }
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="bg-[#FBF9F3] border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm"
+                >
+                  <p className="text-xs font-semibold text-stone-500">
+                    {item.label}
+                  </p>
+                  <p className={`text-2xl sm:text-3xl font-bold mt-2 ${item.color}`}>
+                    {item.value.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Low Stock Alerts */}
+          {!inventoryLoading && !inventoryError && (
+            <div className="rounded-2xl border border-stone-200 bg-[#FBF9F3] p-4 sm:p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+                <h4 className="text-base font-bold text-[#042B1B]">
+                  Low Stock Alerts
+                </h4>
+              </div>
+
+              {inventoryTotals.lowStock === 0 ? (
+                <p className="text-sm text-emerald-700 font-semibold">
+                  No low-stock alerts. All products have at least 10 available units.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {inventorySummary
+                    .filter((product) => product.low_stock)
+                    .map((product) => (
+                      <div
+                        key={product.product_id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 p-3"
+                      >
+                        <span className="text-sm font-semibold text-[#042B1B]">
+                          {product.product_name}
+                        </span>
+
+                        <span className="text-xs font-bold text-red-700">
+                          {product.available_stock} units available
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Detailed Product Inventory Table */}
+          {!inventoryLoading && !inventoryError && (
+            <div className="space-y-3">
+              <h4 className="text-lg font-bold text-[#042B1B]">
+                Product Stock Details
+              </h4>
+
+              <div className="overflow-x-auto rounded-2xl border border-stone-200">
+                <table className="w-full min-w-[850px] text-left text-xs">
+                  <thead className="bg-[#042B1B] text-white">
+                    <tr>
+                      <th className="px-4 py-3">Product</th>
+                      <th className="px-4 py-3">Price</th>
+                      <th className="px-4 py-3">Physical</th>
+                      <th className="px-4 py-3">Reserved</th>
+                      <th className="px-4 py-3">Available</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {inventorySummary.map((product) => (
+                      <tr
+                        key={product.product_id}
+                        className="border-t border-stone-200 hover:bg-[#FBF9F3]"
+                      >
+                        <td className="px-4 py-3 font-semibold text-[#042B1B]">
+                          {product.product_name}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          ₹{Number(product.product_price || 0).toLocaleString('en-IN')}
+                          {product.product_unit ? ` / ${product.product_unit}` : ''}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {product.physical_stock}
+                        </td>
+
+                        <td className="px-4 py-3 text-amber-700">
+                          {product.reserved_stock}
+                        </td>
+
+                        <td className="px-4 py-3 font-bold text-emerald-700">
+                          {product.available_stock}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block rounded-full px-3 py-1 font-bold ${!product.is_available
+                              ? 'bg-stone-200 text-stone-700'
+                              : product.low_stock
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                          >
+                            {!product.is_available
+                              ? 'Out of Stock'
+                              : product.low_stock
+                                ? 'Low Stock'
+                                : 'Available'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {inventorySummary.length === 0 && (
+                <p className="text-sm text-stone-500">
+                  No inventory products found.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Inventory Movement History */}
+          {!inventoryLoading && !inventoryError && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-lg font-bold text-[#042B1B]">
+                  Inventory Movement History
+                </h4>
+                <p className="text-xs text-stone-500 mt-1">
+                  Latest 100 recorded stock movements and adjustments.
+                </p>
+              </div>
+
+              {/* Filter inventory history by product */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <label
+                  htmlFor="inventory-product-filter"
+                  className="text-xs font-bold text-stone-600"
+                >
+                  Filter by Product
+                </label>
+
+                <select
+                  id="inventory-product-filter"
+                  value={selectedInventoryProduct}
+                  onChange={(e) => setSelectedInventoryProduct(e.target.value)}
+                  className="w-full sm:w-72 px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-sm text-[#042B1B] focus:outline-none focus:ring-2 focus:ring-[#DFB33F]"
+                >
+                  <option value="">All Products</option>
+
+                  {inventorySummary.map((product) => (
+                    <option
+                      key={product.product_id}
+                      value={product.product_id}
+                    >
+                      {product.product_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {inventoryMovements.length === 0 ? (
+                <div className="rounded-2xl border border-stone-200 bg-[#FBF9F3] p-6 text-center">
+                  <p className="text-sm font-semibold text-stone-600">
+                    No inventory movements recorded.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-stone-200">
+                  <table className="w-full min-w-[900px] text-left text-xs">
+                    <thead className="bg-[#042B1B] text-white">
+                      <tr>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Product</th>
+                        <th className="px-4 py-3">Movement</th>
+                        <th className="px-4 py-3">Change</th>
+                        <th className="px-4 py-3">Before</th>
+                        <th className="px-4 py-3">After</th>
+                        <th className="px-4 py-3">Reference</th>
+                        <th className="px-4 py-3">Reason</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {inventoryMovements.map((movement) => (
+                        <tr
+                          key={movement.movement_id}
+                          className="border-t border-stone-200 hover:bg-[#FBF9F3]"
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {new Date(movement.created_at).toLocaleString('en-IN')}
+                          </td>
+
+                          <td className="px-4 py-3 font-semibold">
+                            {movement.product_name || movement.product_id}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {movement.movement_type}
+                          </td>
+
+                          <td className={`px-4 py-3 font-bold ${movement.quantity_change > 0
+                            ? 'text-emerald-700'
+                            : 'text-red-600'
+                            }`}>
+                            {movement.quantity_change > 0 ? '+' : ''}
+                            {movement.quantity_change}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {movement.stock_before}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {movement.stock_after}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {movement.source_id}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {movement.notes || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {inventoryError && (
+            <div role="alert" className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+              {inventoryError}
+            </div>
+          )}
+
+          {inventoryLoading && (
+            <p role="status" className="text-sm text-stone-500">
+              Loading inventory information...
+            </p>
+          )}
+
         </div>
       )}
 
@@ -1499,6 +2216,29 @@ export const AdminDashboard = () => {
             </div>
 
             <div className="space-y-1">
+              <label className="font-medium text-stone-600">
+                Initial Physical Stock Quantity
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                required
+                value={newProd.initialStock}
+                onChange={(e) =>
+                  setNewProd({
+                    ...newProd,
+                    initialStock: e.target.value
+                  })
+                }
+                className="w-full p-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#042B1B] focus:outline-none"
+              />
+              <p className="text-[10px] text-stone-500">
+                Opening stock will be recorded in the inventory movement ledger.
+              </p>
+            </div>
+
+            <div className="space-y-1">
               <label className="font-medium text-stone-600">Unit Description</label>
               <input
                 type="text"
@@ -1577,10 +2317,10 @@ export const AdminDashboard = () => {
             <div className="bg-[#042B1B] text-white p-4 sm:p-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#DFB33F]/30 print:hidden shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden border border-[#DFB33F] bg-white shrink-0">
-                  <img src={`${import.meta.env.BASE_URL}images/logo_Main.png`} alt="Srivari Logo" className="w-full h-full object-cover" />
+                  <img src={`${import.meta.env.BASE_URL}images/logo_Main.webp`} alt="Srivari Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h3 className="font-serif-display text-xl font-bold">5 AM Dispatch Manifest Preview</h3>
+                  <h3 className="font-serif-display text-xl font-bold">5:30 AM Dispatch Manifest Preview</h3>
                   <p className="text-xs text-emerald-200">Official Daily Delivery Roster Sheet for Delivery Boys</p>
                 </div>
               </div>
@@ -1633,26 +2373,26 @@ export const AdminDashboard = () => {
 
               <div className="border-b-2 border-[#042B1B] pb-4 flex flex-row items-start justify-between">
                 <div className="flex items-center space-x-4">
-                  <img src={`${import.meta.env.BASE_URL}images/logo_Main.png`} alt="Srivari Milk Farms Logo" className="w-16 h-16 object-cover rounded-full border border-amber-500" />
+                  <img src={`${import.meta.env.BASE_URL}images/logo_Main.webp`} alt="Srivari Milk Farms Logo" className="w-16 h-16 object-cover rounded-full border border-amber-500" />
                   <div>
                     <h1 className="text-2xl font-bold text-[#042B1B] tracking-tight font-serif-display">
                       SRIVARI MILK FARMS
                     </h1>
                     <p className="text-xs font-semibold text-amber-800">
-                      Pure from Our Farm • 100% A2 Cow & Buffalo Milk
+                      Fresh A2 Cow Milk & Buffalo Milk
                     </p>
                     <p className="text-[11px] text-stone-600 mt-1">
                       Survey 197/A, Rajeev Nagar, D.Hirehal, Rayadurg Taluk, Anantapur Dist, AP - 515872
                     </p>
                     <p className="text-[11px] text-stone-600">
-                      Helpline: +91 7022776637 / +91 7095663307 | FSSAI Lic: 11224333000189
+                      Helpline: +91 7676160673
                     </p>
                   </div>
                 </div>
 
                 <div className="text-right text-xs">
                   <div className="inline-block px-3 py-1 bg-[#042B1B] text-white font-bold rounded uppercase tracking-wider mb-1">
-                    5 AM Dispatch Roster
+                    5:30 AM Delivery Roster
                   </div>
                   <p className="font-bold text-stone-800">Date: {dispatchDate}</p>
                   <p className="text-stone-600">Route: {runnerName}</p>

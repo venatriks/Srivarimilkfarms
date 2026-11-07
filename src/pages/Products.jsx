@@ -151,6 +151,8 @@ export const Products = () => {
                   <img
                     src={product.image}
                     alt={product.name}
+                    loading='lazy'
+                    decoding='async'
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <span className="absolute top-4 left-4 bg-[#0F3E2E] text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-[#D4AF37]/50 shadow-md">
@@ -189,16 +191,19 @@ export const Products = () => {
                     {product.description}
                   </p>
 
-                  {/* Lab Reports Availability */}
-                  <div className="bg-[#FDFBF7] p-3 rounded-2xl border border-stone-200 flex items-center gap-2.5">
-                    <FlaskConical className="w-5 h-5 text-[#D4AF37] shrink-0" />
+                  {/* Fat, SNF & A2 Purity Quick Stats */}
+                  <div className="flex flex-wrap sm:flex-nowrap justify-between gap-2 mt-4 py-2 px-3 bg-[#FDFBF7] rounded-xl border border-stone-200/80 text-[11px]">
                     <div>
-                      <p className="text-xs font-semibold text-[#0F3E2E]">
-                        Laboratory Reports
-                      </p>
-                      <p className="text-[11px] text-stone-500">
-                        Coming Soon
-                      </p>
+                      <span className="text-stone-500 font-medium">Fat: </span>
+                      <span className="font-bold text-[#0F3E2E]">{product.labParameters?.fatPercentage}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 font-medium">SNF: </span>
+                      <span className="font-bold text-[#0F3E2E]">{product.labParameters?.snfPercentage}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 font-medium">A2 Purity: </span>
+                      <span className="font-bold text-emerald-700">{product.labParameters?.a2CaseinPurity || "Not Available"}</span>
                     </div>
                   </div>
 

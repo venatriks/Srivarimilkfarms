@@ -2856,10 +2856,15 @@ export const AppProvider = ({ children }) => {
           throw error;
         }
 
-        const createdOrder =
+        const rpcResult =
           Array.isArray(data)
             ? data[0]
             : data;
+
+        const createdOrder =
+          typeof rpcResult === 'string'
+            ? { id: rpcResult }
+            : rpcResult;
 
         clearCart();
 
@@ -2992,6 +2997,46 @@ export const AppProvider = ({ children }) => {
    * ------------------------------------------------------------
    */
 
+  const adjustProductInventory = async (
+    productId,
+    newStock,
+    reason
+  ) => {
+    try {
+      const quantity = Number(newStock);
+
+      if (!Number.isSafeInteger(quantity) || quantity < 0) {
+        showToast('Enter a valid non-negative stock quantity.', 'error');
+        return false;
+      }
+
+      if (!reason || !reason.trim()) {
+        showToast('A reason for the stock adjustment is required.', 'error');
+        return false;
+      }
+
+      const reference =
+        `ADJ-${Date.now()}-${crypto.randomUUID()}`;
+
+      const { error } = await supabase.rpc('adjust_inventory', {
+        p_product_id: productId,
+        p_new_stock: quantity,
+        p_reference: reference,
+        p_notes: reason.trim()
+      });
+
+      if (error) throw error;
+
+      await fetchProducts();
+      showToast('Inventory adjusted successfully!');
+      return true;
+    } catch (error) {
+      console.error('Inventory adjustment failed:', error);
+      showToast(error.message || 'Inventory adjustment failed.', 'error');
+      return false;
+    }
+  };
+
   const updateProductStockOrPrice =
     async (
       productId,
@@ -3010,16 +3055,6 @@ export const AppProvider = ({ children }) => {
       }
 
       if (
-        updates.stockCount !==
-        undefined
-      ) {
-        dbUpdates.stock_count =
-          Number(
-            updates.stockCount
-          );
-      }
-
-      if (
         updates.inStock !==
         undefined
       ) {
@@ -3033,6 +3068,14 @@ export const AppProvider = ({ children }) => {
       ) {
         dbUpdates.nutritional_info =
           updates.nutritionalInfo;
+      }
+
+      if (
+        updates.labParameters !==
+        undefined
+      ) {
+        dbUpdates.lab_parameters =
+          updates.labParameters;
       }
 
       if (
@@ -3092,81 +3135,56 @@ export const AppProvider = ({ children }) => {
       return true;
     };
 
-  const addProduct =
-    async newProdData => {
-      const prodId =
-        newProdData.id ||
-        `p-${Date.now()}`;
+  const addProduct = async newProdData => {
+    const prodId =
+      newProdData.id ||
+      `p-${Date.now()}-${crypto.randomUUID()}`;
 
-      const productData = {
-        id: prodId,
-        name:
-          newProdData.name,
-        category:
-          newProdData.category,
-        price:
-          Number(
-            newProdData.price ||
-            0
-          ),
-        unit:
-          newProdData.unit ||
-          '',
-        rating: 5,
-        reviews_count: 1,
-        image:
-          newProdData.image ||
-          '',
-        badge:
-          'New Launch',
-        description:
-          newProdData.description ||
-          '',
-        in_stock: true,
-        stock_count: 100,
-        subscription_available:
-          true,
-        nutritional_info:
-          newProdData.nutritionalInfo ||
-          {}
-      };
+    const initialStock = Number(newProdData.initialStock);
 
-      const {
-        error
-      } =
-        await supabase
-          .from('products')
-          .insert(
-            productData
-          );
+    if (
+      !Number.isSafeInteger(initialStock) ||
+      initialStock < 0 ||
+      initialStock > 2147483647
+    ) {
+      showToast('Invalid initial stock quantity.', 'error');
+      return false;
+    }
 
-      if (error) {
-        console.error(
-          'Product insert failed:',
-          error
-        );
-
-        showToast(
-          error.message,
-          'error'
-        );
-
-        return false;
+    const { error } = await supabase.rpc(
+      'create_product_with_initial_stock',
+      {
+        p_product_id: prodId,
+        p_name: newProdData.name,
+        p_category: newProdData.category,
+        p_price: Number(newProdData.price || 0),
+        p_unit: newProdData.unit || '',
+        p_image: newProdData.image || '',
+        p_description: newProdData.description || '',
+        p_nutritional_info: newProdData.nutritionalInfo || {},
+        p_initial_stock: initialStock
       }
+    );
 
-      await fetchProducts();
+    if (error) {
+      console.error('Product creation failed:', error);
+      showToast(error.message, 'error');
+      return false;
+    }
 
-      await logAction(
-        'PRODUCT_ADDED',
-        `Added product: ${newProdData.name}`
-      );
+    await fetchProducts();
 
-      showToast(
-        `Added ${newProdData.name} to database!`
-      );
+    await logAction(
+      'PRODUCT_ADDED',
+      `Added product: ${newProdData.name}, initial stock: ${initialStock}`
+    );
 
-      return true;
-    };
+    showToast(
+      `Added ${newProdData.name} with ${initialStock} stock units!`
+    );
+
+    return true;
+  };
 
   const deleteProduct =
     async productId => {
@@ -3521,43 +3539,54 @@ export const AppProvider = ({ children }) => {
    * ------------------------------------------------------------
    */
 
-  const updateOneTimeOrderStatus =
-    async (
-      orderId,
-      newStatus
-    ) => {
-      const {
-        error
-      } =
-        await supabase
-          .from('one_time_orders')
-          .update({
-            status:
-              newStatus
-          })
-          .eq(
-            'id',
-            orderId
-          );
+  const updateOneTimeOrderStatus = async (orderId, newStatus) => {
+    let error = null;
 
-      if (error) {
-        console.error(
-          'One-time order status update failed:',
-          error
-        );
+    if (newStatus === 'Delivered') {
+      const result = await supabase.rpc(
+        'complete_one_time_order',
+        { p_order_id: orderId }
+      );
+      error = result.error;
+    } else if (newStatus === 'Cancelled') {
+      const result = await supabase.rpc(
+        'cancel_one_time_order',
+        { p_order_id: orderId }
+      );
+      error = result.error;
+    } else if (
+      ['Confirmed', 'Processing', 'In Transit'].includes(newStatus)
+    ) {
+      const result = await supabase.rpc(
+        'update_one_time_order_progress',
+        {
+          p_order_id: orderId,
+          p_new_status: newStatus
+        }
+      );
+      error = result.error;
+    } else {
+      showToast('Invalid order status.', 'error');
+      return false;
+    }
 
-        showToast(
-          error.message,
-          'error'
-        );
+    if (error) {
+      console.error('One-time order status update failed:', error);
+      showToast(error.message, 'error');
+      return false;
+    }
 
-        return false;
-      }
+    await Promise.all([
+      fetchOneTimeOrders(),
+      fetchProducts()
+    ]);
 
-      await fetchOneTimeOrders();
+    showToast(
+      `Order ${orderId} marked as ${newStatus}.`
+    );
 
-      return true;
-    };
+    return true;
+  };
 
   const updateOneTimePaymentStatus =
     async (
@@ -4012,100 +4041,92 @@ export const AppProvider = ({ children }) => {
       );
     };
 
-  const importDatabaseBackup =
-    async jsonString => {
-      try {
-        const data =
-          JSON.parse(
-            jsonString
-          );
+  const importDatabaseBackup = async jsonString => {
+    try {
+      const data = JSON.parse(jsonString);
 
-        if (
-          !isSupabaseConfigured()
-        ) {
-          throw new Error(
-            'Supabase is not configured.'
-          );
-        }
-
-        if (
-          Array.isArray(
-            data.products
-          )
-        ) {
-          for (
-            const product of data.products
-          ) {
-            const {
-              error
-            } =
-              await supabase
-                .from(
-                  'products'
-                )
-                .upsert({
-                  id:
-                    product.id,
-                  name:
-                    product.name,
-                  category:
-                    product.category,
-                  price:
-                    Number(
-                      product.price ||
-                      0
-                    ),
-                  unit:
-                    product.unit ||
-                    '',
-                  image:
-                    product.image ||
-                    '',
-                  description:
-                    product.description ||
-                    '',
-                  in_stock:
-                    product.inStock,
-                  stock_count:
-                    Number(
-                      product.stockCount ||
-                      0
-                    ),
-                  subscription_available:
-                    product.subscriptionAvailable,
-                  nutritional_info:
-                    product.nutritionalInfo ||
-                    {}
-                });
-
-            if (error) {
-              throw error;
-            }
-          }
-        }
-
-        await fetchProducts();
-
-        showToast(
-          'Product data restored successfully.'
-        );
-
-        return true;
-      } catch (error) {
-        console.error(
-          'Backup restore failed:',
-          error
-        );
-
-        showToast(
-          error?.message ||
-          'Invalid backup file.',
-          'error'
-        );
-
-        return false;
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase is not configured.');
       }
-    };
+
+      if (!Array.isArray(data.products)) {
+        throw new Error('Backup does not contain a valid products list.');
+      }
+
+      const backupIds = data.products.map(product => product.id);
+
+      if (
+        backupIds.some(id => typeof id !== 'string' || !id.trim()) ||
+        new Set(backupIds).size !== backupIds.length
+      ) {
+        throw new Error('Backup contains invalid or duplicate product IDs.');
+      }
+
+      const { data: existingProducts, error: lookupError } =
+        await supabase
+          .from('products')
+          .select('id');
+
+      if (lookupError) throw lookupError;
+
+      const existingIds = new Set(
+        (existingProducts || []).map(product => product.id)
+      );
+
+      const missingIds = backupIds.filter(id => !existingIds.has(id));
+
+      if (missingIds.length > 0) {
+        throw new Error(
+          'Backup contains products not in the current catalog: ' +
+          missingIds.join(', ') +
+          '. Create these products through Add Product first.'
+        );
+      }
+
+      for (const product of data.products) {
+        const { data: updated, error } = await supabase
+          .from('products')
+          .update({
+            name: product.name,
+            category: product.category,
+            price: Number(product.price ?? 0),
+            unit: product.unit || '',
+            image: product.image || '',
+            description: product.description || '',
+            subscription_available:
+              product.subscriptionAvailable ?? false,
+            nutritional_info: product.nutritionalInfo || {}
+          })
+          .eq('id', product.id)
+          .select('id');
+
+        if (error) throw error;
+
+        if (!updated || updated.length !== 1) {
+          throw new Error(
+            'Product could not be updated: ' + product.id
+          );
+        }
+      }
+
+      await fetchProducts();
+
+      showToast(
+        'Product details restored. Physical inventory was preserved.'
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Backup restore failed:', error);
+
+      showToast(
+        error?.message || 'Invalid backup file.',
+        'error'
+      );
+
+      return false;
+    }
+  };
 
   const resetDatabaseToDefaults =
     async () => {
@@ -4146,6 +4167,7 @@ export const AppProvider = ({ children }) => {
         products,
         setProducts,
         updateProductStockOrPrice,
+        adjustProductInventory,
         addProduct,
         deleteProduct,
 

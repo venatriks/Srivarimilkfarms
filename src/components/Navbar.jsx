@@ -36,7 +36,7 @@ export const Navbar = () => {
           <Link to="/" className="flex items-center space-x-2 sm:space-x-3 group min-w-0">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#DFB33F] shadow-md group-hover:scale-105 transition-transform duration-300 bg-[#042B1B] shrink-0">
               <img
-                src={`${import.meta.env.BASE_URL}images/logo_Main.png`}
+                src={`${import.meta.env.BASE_URL}images/logo_Main.webp`}
                 alt="Srivari Milk Farms Logo"
                 className="w-full h-full object-cover"
               />
