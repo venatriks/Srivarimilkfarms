@@ -66,7 +66,7 @@ export const AdminDashboard = () => {
     try {
       const [summaryResult, movementsResult] = await Promise.all([
         supabase.rpc('admin_get_inventory_summary'),
-        supabase.rpc('admin_get_inventory_movements', {
+        supabase.rpc('admin_get_inventory_movements_v2', {
           p_product_id: productId || null
         })
       ]);
@@ -1637,7 +1637,7 @@ export const AdminDashboard = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border border-stone-200">
-                  <table className="w-full min-w-[900px] text-left text-xs">
+                  <table className="w-full min-w-[1100px] text-left text-xs">
                     <thead className="bg-[#042B1B] text-white">
                       <tr>
                         <th className="px-4 py-3">Date</th>
@@ -1648,6 +1648,7 @@ export const AdminDashboard = () => {
                         <th className="px-4 py-3">After</th>
                         <th className="px-4 py-3">Reference</th>
                         <th className="px-4 py-3">Reason</th>
+                        <th className="px-4 py-3">Administrator</th>
                       </tr>
                     </thead>
 
@@ -1691,6 +1692,13 @@ export const AdminDashboard = () => {
 
                           <td className="px-4 py-3">
                             {movement.notes || '—'}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {movement.actor_name?.trim()
+                              || (movement.actor_id
+                                ? movement.actor_id
+                                : 'Unknown')}
                           </td>
                         </tr>
                       ))}
