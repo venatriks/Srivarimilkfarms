@@ -971,6 +971,8 @@ export const AppProvider = ({ children }) => {
         (data || []).map(
           delivery => ({
             id: delivery.id,
+            assignedEmployeeId:
+              delivery.assigned_employee_id ?? null,
             customerId:
               delivery.customer_id,
             customerName:
@@ -996,7 +998,14 @@ export const AppProvider = ({ children }) => {
               'Pending',
             date:
               delivery.delivery_date ||
-              delivery.created_at
+              (delivery.created_at
+                ? new Intl.DateTimeFormat('en-CA', {
+                    timeZone: 'Asia/Kolkata',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                  }).format(new Date(delivery.created_at))
+                : '')
           })
         )
       );
@@ -3478,7 +3487,25 @@ export const AppProvider = ({ children }) => {
       distId,
       newStatus
     ) => {
+      if (typeof distId !== 'string' || !distId.trim()) {
+        showToast('Invalid delivery ID.', 'error');
+        return false;
+      }
+
+      if (user?.role !== 'admin') {
+        showToast('Administrator access required.', 'error');
+        return false;
+      }
+
+      const allowedStatuses = ['Pending', 'In Transit', 'Delivered'];
+
+      if (!allowedStatuses.includes(newStatus)) {
+        showToast('Invalid delivery status.', 'error');
+        return false;
+      }
+
       const {
+        data,
         error
       } =
         await supabase
@@ -3490,7 +3517,9 @@ export const AppProvider = ({ children }) => {
           .eq(
             'id',
             distId
-          );
+          )
+          .select('id, status')
+          .single();
 
       if (error) {
         console.error(
@@ -3503,6 +3532,18 @@ export const AppProvider = ({ children }) => {
           'error'
         );
 
+        return false;
+      }
+
+      if (
+        !data ||
+        data.id !== distId ||
+        data.status !== newStatus
+      ) {
+        showToast(
+          'Delivery status update could not be verified.',
+          'error'
+        );
         return false;
       }
 
@@ -3532,6 +3573,81 @@ export const AppProvider = ({ children }) => {
 
       return true;
     };
+
+  const updateDeliveryAgent = async (deliveryId, employeeId) => {
+    if (typeof deliveryId !== 'string' || !deliveryId.trim()) {
+      showToast('Invalid delivery ID.', 'error');
+      return false;
+    }
+
+    if (user?.role !== 'admin') {
+      showToast('Administrator access required.', 'error');
+      return false;
+    }
+
+    const selectedEmployeeId = employeeId || null;
+
+    if (selectedEmployeeId !== null) {
+      const employee = (employees || []).find(
+        item => item.id === selectedEmployeeId
+      );
+
+      if (
+        !employee ||
+        employee.category !== 'Delivery Agent' ||
+        employee.status !== 'Active'
+      ) {
+        showToast('Select an active delivery agent.', 'error');
+        return false;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({ assigned_employee_id: selectedEmployeeId })
+      .eq('id', deliveryId)
+      .select('id, assigned_employee_id')
+      .single();
+
+    if (error) {
+      console.error('Delivery agent assignment failed:', error);
+      showToast(error.message, 'error');
+      return false;
+    }
+
+    if (
+      !data ||
+      data.id !== deliveryId ||
+      data.assigned_employee_id !== selectedEmployeeId
+    ) {
+      showToast(
+        'Delivery assignment could not be verified.',
+        'error'
+      );
+      return false;
+    }
+
+    setDistributionList(prev =>
+      prev.map(delivery =>
+        delivery.id === data.id
+          ? { ...delivery, assignedEmployeeId: data.assigned_employee_id }
+          : delivery
+      )
+    );
+
+    await logAction(
+      'DELIVERY_AGENT_CHANGED',
+      `Delivery ${deliveryId}: assigned employee ${data.assigned_employee_id || 'None'}`
+    );
+
+    showToast(
+      data.assigned_employee_id
+        ? 'Delivery agent assigned successfully.'
+        : 'Delivery agent assignment cleared.'
+    );
+
+    return true;
+  };
 
   /*
    * ------------------------------------------------------------
@@ -3759,6 +3875,27 @@ export const AppProvider = ({ children }) => {
 
   const addEmployee =
     async empData => {
+      if (
+        typeof empData.name !== 'string' ||
+        !empData.name.trim() ||
+        typeof empData.role !== 'string' ||
+        !empData.role.trim()
+      ) {
+        showToast('Employee name and role are required', 'error');
+        return false;
+      }
+
+      if (
+        empData.salary === '' ||
+        empData.salary === null ||
+        empData.salary === undefined ||
+        !Number.isFinite(Number(empData.salary)) ||
+        Number(empData.salary) < 0
+      ) {
+        showToast('Enter a valid monthly salary', 'error');
+        return false;
+      }
+
       const employee = {
         id:
           empData.id ||
@@ -3776,8 +3913,7 @@ export const AppProvider = ({ children }) => {
           '',
 
         role:
-          empData.role ||
-          'Delivery Agent',
+          empData.role.trim(),
 
         category:
           empData.category ||
@@ -3794,10 +3930,7 @@ export const AppProvider = ({ children }) => {
             .split('T')[0],
 
         salary:
-          Number(
-            empData.salary ||
-            20000
-          ),
+          Number(empData.salary),
 
         status:
           empData.status ||
@@ -3805,17 +3938,14 @@ export const AppProvider = ({ children }) => {
       };
 
       const {
+        data,
         error
       } =
         await supabase
           .from('employees')
-          .upsert(
-            employee,
-            {
-              onConflict:
-                'id'
-            }
-          );
+          .insert(employee)
+          .select('id')
+          .single();
 
       if (error) {
         console.error(
@@ -3828,6 +3958,14 @@ export const AppProvider = ({ children }) => {
           'error'
         );
 
+        return false;
+      }
+
+      if (!data || data.id !== employee.id) {
+        showToast(
+          'Employee creation could not be verified',
+          'error'
+        );
         return false;
       }
 
@@ -3846,6 +3984,59 @@ export const AppProvider = ({ children }) => {
       empId,
       updates
     ) => {
+      if (
+        typeof empId !== 'string' ||
+        !empId.trim() ||
+        !updates ||
+        typeof updates !== 'object'
+      ) {
+        showToast('Invalid employee update request', 'error');
+        return false;
+      }
+
+      if (
+        updates.name !== undefined &&
+        (
+          typeof updates.name !== 'string' ||
+          !updates.name.trim()
+        )
+      ) {
+        showToast('Employee name is required', 'error');
+        return false;
+      }
+
+      if (
+        updates.role !== undefined &&
+        (
+          typeof updates.role !== 'string' ||
+          !updates.role.trim()
+        )
+      ) {
+        showToast('Employee role is required', 'error');
+        return false;
+      }
+
+      if (
+        updates.salary !== undefined &&
+        (
+          updates.salary === '' ||
+          updates.salary === null ||
+          !Number.isFinite(Number(updates.salary)) ||
+          Number(updates.salary) < 0
+        )
+      ) {
+        showToast('Enter a valid monthly salary', 'error');
+        return false;
+      }
+
+      if (
+        updates.status !== undefined &&
+        !['Active', 'Inactive', 'On Leave'].includes(updates.status)
+      ) {
+        showToast('Invalid employee status', 'error');
+        return false;
+      }
+
       const dbUpdates = {};
 
       if (
@@ -3914,6 +4105,7 @@ export const AppProvider = ({ children }) => {
           updates.status;
 
       const {
+        data,
         error
       } =
         await supabase
@@ -3924,7 +4116,8 @@ export const AppProvider = ({ children }) => {
           .eq(
             'id',
             empId
-          );
+          )
+          .select('id');
 
       if (error) {
         console.error(
@@ -3940,6 +4133,11 @@ export const AppProvider = ({ children }) => {
         return false;
       }
 
+      if (!data || data.length !== 1 || data[0].id !== empId) {
+        showToast('Employee update could not be verified', 'error');
+        return false;
+      }
+
       await fetchEmployees();
 
       return true;
@@ -3947,16 +4145,44 @@ export const AppProvider = ({ children }) => {
 
   const deleteEmployee =
     async empId => {
-      const {
-        error
-      } =
-        await supabase
-          .from('employees')
-          .delete()
-          .eq(
-            'id',
-            empId
-          );
+      if (
+        typeof empId !== 'string' ||
+        !empId.trim()
+      ) {
+        showToast('Invalid employee ID', 'error');
+        return false;
+      }
+
+      const { count, error: assignmentError } = await supabase
+        .from('deliveries')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_employee_id', empId);
+
+      if (assignmentError || count === null || count === undefined) {
+        console.error(
+          'Employee delivery assignment check failed:',
+          assignmentError
+        );
+        showToast(
+          'Unable to verify employee delivery assignments',
+          'error'
+        );
+        return false;
+      }
+
+      if (count > 0) {
+        showToast(
+          `Cannot delete employee: ${count} assigned delivery record(s). Reassign them first.`,
+          'error'
+        );
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', empId)
+        .select('id');
 
       if (error) {
         console.error(
@@ -3969,6 +4195,14 @@ export const AppProvider = ({ children }) => {
           'error'
         );
 
+        return false;
+      }
+
+      if (!data || data.length !== 1 || data[0].id !== empId) {
+        showToast(
+          'Employee deletion could not be verified',
+          'error'
+        );
         return false;
       }
 
@@ -4201,6 +4435,7 @@ export const AppProvider = ({ children }) => {
          */
         distributionList,
         updateDistributionStatus,
+        updateDeliveryAgent,
 
         /*
          * One-time orders

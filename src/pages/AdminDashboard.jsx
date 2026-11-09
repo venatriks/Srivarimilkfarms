@@ -14,7 +14,7 @@ export const AdminDashboard = () => {
     user,
     authLoading,
     products, updateProductStockOrPrice, adjustProductInventory, addProduct, deleteProduct,
-    distributionList, updateDistributionStatus,
+    distributionList, updateDistributionStatus, updateDeliveryAgent,
     dbUsers, addDbUser, updateDbUser, deleteDbUser,
     orders,
     subscriptions,
@@ -124,6 +124,8 @@ export const AdminDashboard = () => {
   ]);
 
   const [searchDist, setSearchDist] = useState('');
+  const [updatingDeliveryAgentId, setUpdatingDeliveryAgentId] = useState(null);
+  const [updatingDeliveryStatusId, setUpdatingDeliveryStatusId] = useState(null);
   const [searchUsers, setSearchUsers] = useState('');
   const [searchQueries, setSearchQueries] = useState('');
   const [searchOneTimeOrders, setSearchOneTimeOrders] = useState('');
@@ -131,8 +133,13 @@ export const AdminDashboard = () => {
   const [oneTimePaymentFilter, setOneTimePaymentFilter] = useState('All');
   const [selectedOneTimeOrderDetails, setSelectedOneTimeOrderDetails] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split('T')[0]);
-  const [runnerName, setRunnerName] = useState('Ramesh Gowda (Route #4)');
+  const [dispatchDate, setDispatchDate] = useState(() => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date()));
+
 
   // New User Form State
   const [newUser, setNewUser] = useState({
@@ -149,16 +156,17 @@ export const AdminDashboard = () => {
   const [empCategoryFilter, setEmpCategoryFilter] = useState('All'); // 'All' | 'Delivery Agent' | 'Internal Staff'
   const [showAddEmpModal, setShowAddEmpModal] = useState(false);
   const [editingEmp, setEditingEmp] = useState(null);
+  const [updatingEmployeeStatusId, setUpdatingEmployeeStatusId] = useState(null);
 
   const [newEmp, setNewEmp] = useState({
     name: '',
     phone: '+91 ',
     email: '',
-    role: 'Delivery Agent (Route #1)',
+    role: '',
     category: 'Delivery Agent',
     address: '',
     joiningDate: new Date().toISOString().split('T')[0],
-    salary: 22000,
+    salary: '',
     status: 'Active'
   });
 
@@ -508,31 +516,74 @@ export const AdminDashboard = () => {
   const internalStaffCount = (employees || []).filter(e => e.category === 'Internal Staff').length;
   const totalPayroll = (employees || []).reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
 
-  const handleAddEmployeeSubmit = (e) => {
+  const handleAddEmployeeSubmit = async (e) => {
     e.preventDefault();
     if (!newEmp.name.trim()) {
       showToast("Employee name is required", "error");
       return;
     }
-    addEmployee(newEmp);
+    if (!newEmp.role.trim()) {
+      showToast("Employee role is required", "error");
+      return;
+    }
+    if (
+      newEmp.salary === '' ||
+      !Number.isFinite(Number(newEmp.salary)) ||
+      Number(newEmp.salary) < 0
+    ) {
+      showToast("Enter a valid monthly salary", "error");
+      return;
+    }
+    const success = await addEmployee(newEmp);
+    if (!success) return;
     setNewEmp({
       name: '',
       phone: '+91 ',
       email: '',
-      role: 'Delivery Agent (Route #1)',
+      role: '',
       category: 'Delivery Agent',
       address: '',
       joiningDate: new Date().toISOString().split('T')[0],
-      salary: 22000,
+      salary: '',
       status: 'Active'
     });
     setShowAddEmpModal(false);
   };
 
-  const handleEditEmployeeSubmit = (e) => {
+  const handleEditEmployeeSubmit = async (e) => {
     e.preventDefault();
     if (!editingEmp || !editingEmp.id) return;
-    updateEmployee(editingEmp.id, editingEmp);
+
+    if (
+      typeof editingEmp.name !== 'string' ||
+      !editingEmp.name.trim()
+    ) {
+      showToast('Employee name is required', 'error');
+      return;
+    }
+
+    if (
+      typeof editingEmp.role !== 'string' ||
+      !editingEmp.role.trim()
+    ) {
+      showToast('Employee role is required', 'error');
+      return;
+    }
+
+    if (
+      editingEmp.salary === '' ||
+      editingEmp.salary === null ||
+      editingEmp.salary === undefined ||
+      !Number.isFinite(Number(editingEmp.salary)) ||
+      Number(editingEmp.salary) < 0
+    ) {
+      showToast('Enter a valid monthly salary', 'error');
+      return;
+    }
+
+    const success = await updateEmployee(editingEmp.id, editingEmp);
+    if (!success) return;
+
     setEditingEmp(null);
   };
 
@@ -544,16 +595,47 @@ export const AdminDashboard = () => {
   };
 
   // Calculate real-time database stats dynamically
-  const totalDispatchLiters = distributionList.reduce((acc, item) => {
-    const str = String(item.quantity || '');
-    const match = str.match(/(\d+(\.\d+)?)\s*Liter/i) || str.match(/(\d+(\.\d+)?)/);
-    return acc + (match ? parseFloat(match[1]) : 1);
+  const tomorrowDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+  const tomorrowDeliveries = distributionList.filter(item =>
+    /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || '')) &&
+    item.date === tomorrowDate &&
+    String(item.status || '').toLowerCase() !== 'cancelled'
+  );
+
+  const totalDispatchLiters = tomorrowDeliveries.reduce((sum, item) => {
+    const matches = String(item.quantity || '').matchAll(/(\d+(?:\.\d+)?)\s*Liters?\b/gi);
+    return sum + Array.from(matches).reduce(
+      (liters, match) => liters + Number(match[1]), 0
+    );
   }, 0);
 
-  const realTimeOrdersSum = (orders || []).reduce((acc, o) => acc + (Number(o.totalAmount) || 0), 0);
-  const realTimeRevenue = (realTimeOrdersSum > 0 ? realTimeOrdersSum : 0) + (distributionList.length * 150) + 105000;
+  const manifestDeliveries = distributionList.filter(item =>
+    String(item.date || '').slice(0, 10) === dispatchDate &&
+    String(item.status || '').toLowerCase() !== 'cancelled'
+  );
 
-  const realTimeEmptyBottles = distributionList.reduce((acc, item) => acc + (Number(item.bottleReturnCount) || 0), 0) + 672;
+  const manifestMilkLiters = manifestDeliveries.reduce((sum, item) => {
+    const matches = String(item.quantity || '').matchAll(/(\d+(?:\.\d+)?)\s*Liters?\b/gi);
+    return sum + Array.from(matches).reduce(
+      (liters, match) => liters + Number(match[1]), 0
+    );
+  }, 0);
+
+  const manifestBottlesReturned = manifestDeliveries.reduce(
+    (sum, item) => sum + (Number(item.bottleReturnCount) || 0), 0
+  );
+
+  const totalPaidOrders = (oneTimeOrders || [])
+    .filter(order => order.paymentStatus === 'Paid')
+    .reduce((sum, order) => sum + (Number(order.totalAmount) || 0), 0);
+
+  const realTimeEmptyBottles = distributionList.reduce((acc, item) => acc + (Number(item.bottleReturnCount) || 0), 0);
 
   return (
     <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
@@ -602,9 +684,9 @@ export const AdminDashboard = () => {
           <div>
             <span className="text-xs text-stone-500 font-medium">Tomorrow's Milk Dispatch</span>
             <div className="text-3xl font-bold font-serif-display text-[#042B1B] mt-1">
-              {(totalDispatchLiters > 0 ? (1412 + totalDispatchLiters) : 1420).toLocaleString()} L
+              {totalDispatchLiters.toLocaleString()} L
             </div>
-            <span className="text-[10px] text-emerald-700 font-semibold">{distributionList.length} Drops • Chilled at 3.8°C</span>
+            <span className="text-[10px] text-emerald-700 font-semibold">{tomorrowDeliveries.length} Scheduled Drops</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-[#042B1B]/10 text-[#042B1B] flex items-center justify-center">
             <Milk className="w-6 h-6 text-[#DFB33F]" />
@@ -624,11 +706,11 @@ export const AdminDashboard = () => {
 
         <div className="bg-white p-6 rounded-3xl border border-[#042B1B]/10 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs text-stone-500 font-medium">Today's Revenue</span>
+            <span className="text-xs text-stone-500 font-medium">Total Paid Orders</span>
             <div className="text-3xl font-bold font-serif-display text-[#042B1B] mt-1">
-              ₹{realTimeRevenue.toLocaleString()}
+              ₹{totalPaidOrders.toLocaleString()}
             </div>
-            <span className="text-[10px] text-emerald-700 font-semibold">Live DB Synced • Wallet Auto-Deducted</span>
+            <span className="text-[10px] text-emerald-700 font-semibold">Recorded Paid Orders • All Time</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-[#042B1B]/10 text-[#042B1B] flex items-center justify-center">
             <DollarSign className="w-6 h-6 text-[#DFB33F]" />
@@ -641,7 +723,7 @@ export const AdminDashboard = () => {
             <div className="text-3xl font-bold font-serif-display text-[#042B1B] mt-1">
               {realTimeEmptyBottles.toLocaleString()}
             </div>
-            <span className="text-[10px] text-emerald-700 font-semibold">Sterilized for Reuse • Live DB Count</span>
+            <span className="text-[10px] text-emerald-700 font-semibold">Recorded Bottle Returns • All Time</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-[#042B1B]/10 text-[#042B1B] flex items-center justify-center">
             <Package className="w-6 h-6 text-[#DFB33F]" />
@@ -809,6 +891,7 @@ export const AdminDashboard = () => {
                   <th className="py-3.5 px-4">Order Items</th>
                   <th className="py-3.5 px-4">Slot</th>
                   <th className="py-3.5 px-4">Bottle Return</th>
+                  <th className="py-3.5 px-4">Assigned Agent</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4">Actions</th>
                 </tr>
@@ -825,6 +908,51 @@ export const AdminDashboard = () => {
                     <td className="py-4 px-4 text-stone-500">{item.deliverySlot}</td>
                     <td className="py-4 px-4 font-bold text-amber-800">{item.bottleReturnCount} Glass Bottles</td>
                     <td className="py-4 px-4">
+                      <select
+                        value={item.assignedEmployeeId || ''}
+                        onChange={async (e) => {
+                          if (updatingDeliveryAgentId !== null) return;
+
+                          const selectedId = e.currentTarget.value;
+
+                          setUpdatingDeliveryAgentId(item.id);
+
+                          try {
+                            await updateDeliveryAgent(item.id, selectedId);
+                          } catch (error) {
+                            console.error('Delivery assignment failed:', error);
+                            showToast('Unable to update delivery assignment.', 'error');
+                          } finally {
+                            setUpdatingDeliveryAgentId(null);
+                          }
+                        }}
+                        disabled={updatingDeliveryAgentId !== null}
+                        aria-label={`Assigned delivery agent for ${item.customerName}`}
+                        className="px-2 py-1 bg-stone-100 border border-stone-200 rounded-lg text-[11px] font-semibold text-[#042B1B] focus:outline-none"
+                      >
+                        <option value="">Not Assigned</option>
+                        {(employees || [])
+                          .filter(employee =>
+                            employee.category === 'Delivery Agent' &&
+                            (employee.status === 'Active' ||
+                              employee.id === item.assignedEmployeeId)
+                          )
+                          .map(employee => (
+                            <option key={employee.id} value={employee.id}>
+                              {employee.name} ({employee.role}){employee.status !== 'Active' ? ` — ${employee.status || 'Status Unknown'}` : ''}
+                            </option>
+                          ))}
+                        {item.assignedEmployeeId &&
+                          !(employees || []).some(employee =>
+                            employee.id === item.assignedEmployeeId
+                          ) && (
+                            <option value={item.assignedEmployeeId}>
+                              Assigned employee unavailable
+                            </option>
+                          )}
+                      </select>
+                    </td>
+                    <td className="py-4 px-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${item.status === 'Delivered'
                         ? 'bg-emerald-100 text-emerald-800'
                         : item.status === 'In Transit'
@@ -837,7 +965,24 @@ export const AdminDashboard = () => {
                     <td className="py-4 px-4">
                       <select
                         value={item.status}
-                        onChange={(e) => updateDistributionStatus(item.id, e.target.value)}
+                        onChange={async (e) => {
+                          if (updatingDeliveryStatusId !== null) return;
+
+                          const selectedStatus = e.currentTarget.value;
+
+                          setUpdatingDeliveryStatusId(item.id);
+
+                          try {
+                            await updateDistributionStatus(item.id, selectedStatus);
+                          } catch (error) {
+                            console.error('Delivery status update failed:', error);
+                            showToast('Unable to update delivery status.', 'error');
+                          } finally {
+                            setUpdatingDeliveryStatusId(null);
+                          }
+                        }}
+                        disabled={updatingDeliveryStatusId !== null}
+                        aria-label={`Delivery status for ${item.customerName}`}
                         className="px-2 py-1 bg-stone-100 border border-stone-200 rounded-lg text-[11px] font-semibold text-[#042B1B] focus:outline-none"
                       >
                         <option value="Pending">Pending</option>
@@ -2015,7 +2160,19 @@ export const AdminDashboard = () => {
                         <td className="py-4 px-4">
                           <select
                             value={emp.status || 'Active'}
-                            onChange={(e) => updateEmployee(emp.id, { status: e.target.value })}
+                            onChange={async (e) => {
+                              if (updatingEmployeeStatusId !== null) return;
+
+                              const newStatus = e.target.value;
+                              setUpdatingEmployeeStatusId(emp.id);
+
+                              try {
+                                await updateEmployee(emp.id, { status: newStatus });
+                              } finally {
+                                setUpdatingEmployeeStatusId(null);
+                              }
+                            }}
+                            disabled={updatingEmployeeStatusId !== null}
                             className={`px-3 py-1.5 border rounded-xl text-xs font-bold focus:outline-none shadow-xs ${emp.status === 'Active'
                               ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
                               : 'bg-red-50 text-red-800 border-red-300'
@@ -2037,9 +2194,9 @@ export const AdminDashboard = () => {
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
+                              onClick={async () => {
                                 if (window.confirm(`Are you sure you want to remove employee "${emp.name}" from the database?`)) {
-                                  deleteEmployee(emp.id);
+                                  await deleteEmployee(emp.id);
                                 }
                               }}
                               className="p-2 text-stone-400 hover:text-red-600 transition-colors bg-stone-100 hover:bg-red-50 rounded-xl"
@@ -2364,15 +2521,6 @@ export const AdminDashboard = () => {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-[#042B1B]">Delivery Runner & Route:</label>
-                  <input
-                    type="text"
-                    value={runnerName}
-                    onChange={(e) => setRunnerName(e.target.value)}
-                    className="block px-3 py-1.5 bg-white rounded-lg border border-stone-300 font-medium text-[#042B1B]"
-                  />
-                </div>
               </div>
             </div>
 
@@ -2403,8 +2551,8 @@ export const AdminDashboard = () => {
                     5:30 AM Delivery Roster
                   </div>
                   <p className="font-bold text-stone-800">Date: {dispatchDate}</p>
-                  <p className="text-stone-600">Route: {runnerName}</p>
-                  <p className="text-stone-500 font-mono text-[10px]">Manifest #: SRI-MAN-{dispatchDate.replace(/-/g, '')}-04</p>
+                  <p className="text-stone-600">Agent Assignment: Per Delivery</p>
+                  <p className="text-stone-500 font-mono text-[10px]">Manifest #: SRI-MAN-{dispatchDate.replace(/-/g, '')}</p>
                 </div>
               </div>
 
@@ -2412,19 +2560,19 @@ export const AdminDashboard = () => {
               <div className="grid grid-cols-4 gap-4 p-3 bg-stone-100 rounded-xl border border-stone-300 text-center text-xs">
                 <div>
                   <span className="text-stone-500 block text-[10px] uppercase font-bold">Total Drops</span>
-                  <span className="font-bold text-base text-[#042B1B]">{distributionList.length} Customers</span>
+                  <span className="font-bold text-base text-[#042B1B]">{manifestDeliveries.length} Drops</span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[10px] uppercase font-bold">Total Volume</span>
-                  <span className="font-bold text-base text-[#042B1B]">1,420 Liters</span>
+                  <span className="font-bold text-base text-[#042B1B]">{manifestMilkLiters.toLocaleString()} Liters</span>
                 </div>
                 <div>
-                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Glass Bottles to Collect</span>
-                  <span className="font-bold text-base text-amber-800">8 Empty Bottles</span>
+                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Bottles Already Returned</span>
+                  <span className="font-bold text-base text-amber-800">{manifestBottlesReturned.toLocaleString()} Empty Bottles</span>
                 </div>
                 <div>
-                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Dispatch Slot</span>
-                  <span className="font-bold text-base text-[#042B1B]">5:00 AM - 6:30 AM</span>
+                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Default Delivery Window</span>
+                  <span className="font-bold text-base text-[#042B1B]">5:30 AM - 6:30 AM</span>
                 </div>
               </div>
 
@@ -2438,12 +2586,13 @@ export const AdminDashboard = () => {
                       <th className="p-2 border border-stone-300 w-1/3">Delivery Address</th>
                       <th className="p-2 border border-stone-300">Product & Quantity</th>
                       <th className="p-2 border border-stone-300 text-center">Time Slot</th>
+                      <th className="p-2 border border-stone-300">Assigned Agent</th>
                       <th className="p-2 border border-stone-300 text-center w-24">Bottle Return [ ]</th>
                       <th className="p-2 border border-stone-300 text-center w-28">Status / Sign</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-300 font-medium">
-                    {distributionList.map((item, idx) => (
+                    {manifestDeliveries.map((item, idx) => (
                       <tr key={item.id} className="odd:bg-white even:bg-stone-50/50">
                         <td className="p-2 border border-stone-300 text-center font-bold">{idx + 1}</td>
                         <td className="p-2 border border-stone-300">
@@ -2458,6 +2607,13 @@ export const AdminDashboard = () => {
                         </td>
                         <td className="p-2 border border-stone-300 text-center text-[10px] text-stone-700">
                           {item.deliverySlot}
+                        </td>
+                        <td className="p-2 border border-stone-300 text-[10px] text-stone-800">
+                          {item.assignedEmployeeId
+                            ? employees.find(
+                                employee => employee.id === item.assignedEmployeeId
+                              )?.name || 'Employee Unavailable'
+                            : 'Not Assigned'}
                         </td>
                         <td className="p-2 border border-stone-300 text-center font-bold">
                           <div className="flex items-center justify-center space-x-1">
@@ -2582,7 +2738,7 @@ export const AdminDashboard = () => {
                   <input
                     type="number"
                     value={newEmp.salary}
-                    onChange={(e) => setNewEmp({ ...newEmp, salary: Number(e.target.value) })}
+                    onChange={(e) => setNewEmp({ ...newEmp, salary: e.target.value === '' ? '' : Number(e.target.value) })}
                     className="w-full p-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#042B1B] focus:outline-none"
                   />
                 </div>
@@ -2715,8 +2871,11 @@ export const AdminDashboard = () => {
                   <label className="font-bold text-stone-700">Monthly Salary (₹)</label>
                   <input
                     type="number"
-                    value={editingEmp.salary || 0}
-                    onChange={(e) => setEditingEmp({ ...editingEmp, salary: Number(e.target.value) })}
+                    value={editingEmp.salary ?? ''}
+                    onChange={(e) => setEditingEmp({
+                      ...editingEmp,
+                      salary: e.target.value === '' ? '' : Number(e.target.value)
+                    })}
                     className="w-full p-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#042B1B] focus:outline-none"
                   />
                 </div>
@@ -2816,9 +2975,9 @@ export const AdminDashboard = () => {
               <p className="font-serif-display text-2xl font-bold text-[#042B1B]">{oneTimeOrders ? oneTimeOrders.length : 0}</p>
             </div>
             <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
-              <span className="text-stone-500 font-medium">One-Time Revenue</span>
+              <span className="text-stone-500 font-medium">Total Paid Orders</span>
               <p className="font-serif-display text-2xl font-bold text-emerald-800">
-                ₹{(oneTimeOrders || []).reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0).toLocaleString()}
+                ₹{totalPaidOrders.toLocaleString()}
               </p>
             </div>
             <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
@@ -2906,7 +3065,7 @@ export const AdminDashboard = () => {
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                             : 'bg-amber-100 text-amber-900 border border-amber-300'
                             }`}>
-                            {ord.paymentStatus || 'Paid'}
+                            {ord.paymentStatus || 'Unknown'}
                           </span>
                           <span className="text-[10px] text-stone-500 block">{ord.paymentMethod}</span>
                           <button
