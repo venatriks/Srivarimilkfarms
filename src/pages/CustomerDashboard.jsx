@@ -37,6 +37,7 @@ export const CustomerDashboard = () => {
     orders = [],
     showToast,
     toggleSubscriptionPause,
+    cancelSubscription,
     updateSubscriptionQty,
   } = useApp();
 
@@ -82,40 +83,19 @@ export const CustomerDashboard = () => {
       (product) => String(product.id) === String(subscription.productId)
     );
 
+
   const handlePauseResume = async (subscription) => {
     if (!user?.id || savingSubscriptionId) return;
 
-    const nextStatus =
-      subscription.status === 'Active' ? 'Paused' : 'Active';
+    if (!['Active', 'Paused'].includes(subscription.status)) {
+      showToast('This subscription cannot be paused or resumed.', 'error');
+      return;
+    }
 
     setSavingSubscriptionId(subscription.id);
 
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase
-          .from('subscriptions')
-          .update({ status: nextStatus })
-          .eq('id', subscription.id)
-          .eq('user_id', user.id);
-
-        if (error) {
-          console.error('Subscription status update error:', error);
-          showToast(
-            error.message || 'Unable to update subscription status.',
-            'error'
-          );
-          return;
-        }
-      }
-
-      // Keep the local AppContext state in sync immediately.
-      toggleSubscriptionPause(subscription.id);
-
-      showToast(
-        nextStatus === 'Active'
-          ? 'Subscription resumed successfully.'
-          : 'Delivery paused successfully.'
-      );
+      await toggleSubscriptionPause(subscription.id);
     } catch (error) {
       console.error('Subscription status update exception:', error);
       showToast('Unable to update your subscription right now.', 'error');
@@ -124,51 +104,52 @@ export const CustomerDashboard = () => {
     }
   };
 
-  const handleQuantityChange = async (subscription, newQuantity) => {
-    if (!user?.id || savingSubscriptionId) return;
+  const handleCancelSubscription = async (subscription) => {
+    if (!user?.id || savingSubscriptionId !== null) return;
 
-    const quantity = Math.max(1, Number(newQuantity) || 1);
-    if (quantity === Number(subscription.quantity)) return;
+    if (
+      String(subscription.userId) !== String(user.id) ||
+      !['Active', 'Paused'].includes(subscription.status)
+    ) {
+      showToast('This subscription cannot be cancelled.', 'error');
+      return;
+    }
 
-    const currentQuantity = Math.max(1, Number(subscription.quantity) || 1);
-    const currentDailyAmount = Number(subscription.pricePerDay || 0);
+    const confirmed = window.confirm(
+      'Cancel this milk subscription? This will stop future deliveries. ' +
+      'Your subscription record will be retained.'
+    );
 
-    // Preserve the subscription's current per-unit rate instead of
-    // hard-coding a milk price in the dashboard.
-    const unitPrice =
-      currentDailyAmount > 0
-        ? currentDailyAmount / currentQuantity
-        : Number(getProductForSubscription(subscription)?.price || 0);
-
-    const newDailyAmount = Number((unitPrice * quantity).toFixed(2));
+    if (!confirmed) return;
 
     setSavingSubscriptionId(subscription.id);
 
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase
-          .from('subscriptions')
-          .update({
-            quantity,
-            price_per_day: newDailyAmount,
-          })
-          .eq('id', subscription.id)
-          .eq('user_id', user.id);
+      await cancelSubscription(subscription.id);
+    } catch (error) {
+      console.error('Subscription cancellation exception:', error);
+      showToast('Unable to cancel your subscription right now.', 'error');
+    } finally {
+      setSavingSubscriptionId(null);
+    }
+  };
 
-        if (error) {
-          console.error('Subscription quantity update error:', error);
-          showToast(
-            error.message || 'Unable to update subscription quantity.',
-            'error'
-          );
-          return;
-        }
-      }
+  const handleQuantityChange = async (subscription, newQuantity) => {
+    if (!user?.id || savingSubscriptionId) return;
 
-      // AppContext updates its local representation immediately.
-      updateSubscriptionQty(subscription.id, quantity);
+    if (!['Active', 'Paused'].includes(subscription.status)) {
+      showToast('This subscription quantity cannot be changed.', 'error');
+      return;
+    }
 
-      showToast(`Subscription updated to ${quantity} Liter/day.`);
+    const quantity = Math.max(1, Number(newQuantity) || 1);
+
+    if (quantity === Number(subscription.quantity)) return;
+
+    setSavingSubscriptionId(subscription.id);
+
+    try {
+      await updateSubscriptionQty(subscription.id, quantity);
     } catch (error) {
       console.error('Subscription quantity update exception:', error);
       showToast('Unable to update subscription quantity right now.', 'error');
@@ -246,6 +227,9 @@ export const CustomerDashboard = () => {
                 Number(subscription.quantity || 1)
               );
               const isActive = subscription.status === 'Active';
+              const isPaused = subscription.status === 'Paused';
+              const isCancelled = subscription.status === 'Cancelled';
+              const canModifySubscription = isActive || isPaused;
               const bottlesExchanged = Number(
                 subscription.bottlesExchanged || 0
               );
@@ -257,8 +241,8 @@ export const CustomerDashboard = () => {
                 <div
                   key={subscription.id}
                   className={`bg-white rounded-3xl p-4 sm:p-6 border shadow-md transition-all space-y-4 sm:space-y-6 ${isActive
-                      ? 'border-[#0F3E2E]/20'
-                      : 'border-amber-300 bg-amber-50/40'
+                    ? 'border-[#0F3E2E]/20'
+                    : 'border-amber-300 bg-amber-50/40'
                     }`}
                 >
                   {/* Subscription title + pause/resume */}
@@ -266,13 +250,21 @@ export const CustomerDashboard = () => {
                     <div>
                       <span
                         className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full ${isActive
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-200 text-amber-900'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : isPaused
+                            ? 'bg-amber-200 text-amber-900'
+                            : isCancelled
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-stone-100 text-stone-700'
                           }`}
                       >
                         {isActive
                           ? 'Active Dispatch'
-                          : 'Vacation Paused'}
+                          : isPaused
+                            ? 'Vacation Paused'
+                            : isCancelled
+                              ? 'Cancelled'
+                              : subscription.status || 'Unknown Status'}
                       </span>
 
                       <h3 className="font-serif-display text-xl font-bold text-[#0F3E2E] mt-1">
@@ -280,35 +272,56 @@ export const CustomerDashboard = () => {
                       </h3>
                     </div>
 
+                    <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      disabled={savingSubscriptionId === subscription.id}
+                      disabled={
+                        !canModifySubscription ||
+                        savingSubscriptionId !== null
+                      }
                       onClick={() => handlePauseResume(subscription)}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 ${isActive
-                          ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                          : 'bg-[#0F3E2E] text-white hover:bg-[#18523f]'
+                        ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                        : 'bg-[#0F3E2E] text-white hover:bg-[#18523f]'
                         }`}
                     >
-                      {isActive ? (
-                        <>
-                          <PauseCircle className="w-4 h-4" />
-                          <span>
-                            {savingSubscriptionId === subscription.id
-                              ? 'Saving...'
-                              : 'Pause Delivery'}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <PlayCircle className="w-4 h-4 text-[#D4AF37]" />
-                          <span>
-                            {savingSubscriptionId === subscription.id
-                              ? 'Saving...'
-                              : 'Resume Delivery'}
-                          </span>
-                        </>
-                      )}
+                      {isCancelled ? (
+                        <span>Subscription Cancelled</span>
+                      )
+                        : isActive ? (
+                          <>
+                            <PauseCircle className="w-4 h-4" />
+                            <span>
+                              {savingSubscriptionId === subscription.id
+                                ? 'Saving...'
+                                : 'Pause Delivery'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <PlayCircle className="w-4 h-4 text-[#D4AF37]" />
+                            <span>
+                              {savingSubscriptionId === subscription.id
+                                ? 'Saving...'
+                                : 'Resume Delivery'}
+                            </span>
+                          </>
+                        )}
                     </button>
+
+                    {canModifySubscription && (
+                      <button
+                        type="button"
+                        disabled={savingSubscriptionId !== null}
+                        onClick={() => handleCancelSubscription(subscription)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 disabled:opacity-50"
+                      >
+                        {savingSubscriptionId === subscription.id
+                          ? 'Saving...'
+                          : 'Cancel Subscription'}
+                      </button>
+                    )}
+                    </div>
                   </div>
 
                   {/* Quantity / delivery / price */}
@@ -322,7 +335,8 @@ export const CustomerDashboard = () => {
                         <button
                           type="button"
                           disabled={
-                            savingSubscriptionId === subscription.id ||
+                            !canModifySubscription ||
+                            savingSubscriptionId !== null ||
                             quantity <= 1
                           }
                           onClick={() =>
@@ -345,7 +359,8 @@ export const CustomerDashboard = () => {
                         <button
                           type="button"
                           disabled={
-                            savingSubscriptionId === subscription.id
+                            !canModifySubscription ||
+                            savingSubscriptionId !== null
                           }
                           onClick={() =>
                             handleQuantityChange(
@@ -515,8 +530,8 @@ export const CustomerDashboard = () => {
                   type="button"
                   onClick={() => setSelectedRecharge(amount)}
                   className={`py-2 rounded-xl text-xs font-bold transition-all ${selectedRecharge === amount
-                      ? 'bg-[#0F3E2E] text-white shadow-sm'
-                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-[#0F3E2E] text-white shadow-sm'
+                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
                     }`}
                 >
                   +₹{amount}

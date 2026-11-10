@@ -34,6 +34,7 @@ export const CheckoutModal = () => {
   const [address, setAddress] = useState(user?.address || '');
   const [paymentMethod, setPaymentMethod] = useState(user ? 'wallet' : 'upi');
   const [deliverySlot, setDeliverySlot] = useState('5:30 AM - 6:30 AM');
+  const [subscriptionStartDate, setSubscriptionStartDate] = useState('');
   const [instructions, setInstructions] = useState(
     'Ring bell gently / Leave inside insulated doorstep bag.'
   );
@@ -94,6 +95,7 @@ export const CheckoutModal = () => {
     const subscriptionItems = cart.filter(
       (item) => item.buyType === 'subscription'
     );
+
     const oneTimeItems = cart.filter(
       (item) => item.buyType !== 'subscription'
     );
@@ -104,6 +106,26 @@ export const CheckoutModal = () => {
         'error'
       );
       return;
+    }
+
+    if (subscriptionItems.length > 0) {
+      const todayInIndia = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(new Date());
+
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(subscriptionStartDate) ||
+        subscriptionStartDate < todayInIndia
+      ) {
+        showToast(
+          'Please select a valid subscription start date (today or later).',
+          'error'
+        );
+        return;
+      }
     }
 
     const formattedPaymentMethod =
@@ -122,8 +144,12 @@ export const CheckoutModal = () => {
       // Create real Supabase subscription rows for subscription items
       // -----------------------------------------------------
       for (const item of subscriptionItems) {
+
         const createdSubscription = await createSubscription({
-          item,
+          item: {
+            ...item,
+            startDate: subscriptionStartDate
+          },
           deliverySlot
         });
 
@@ -386,6 +412,40 @@ export const CheckoutModal = () => {
                   </option>
                 </select>
               </div>
+
+
+              {/* Subscription Start Date */}
+              {hasSubscriptionItem && (
+                <div className="space-y-1 sm:col-span-2">
+                  <label
+                    htmlFor="subscription-start-date"
+                    className="text-xs font-medium text-stone-600"
+                  >
+                    Subscription Start Date *
+                  </label>
+
+                  <input
+                    id="subscription-start-date"
+                    type="date"
+                    required
+                    value={subscriptionStartDate}
+                    min={new Intl.DateTimeFormat('en-CA', {
+                      timeZone: 'Asia/Kolkata',
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    }).format(new Date())}
+                    onChange={(e) =>
+                      setSubscriptionStartDate(e.target.value)
+                    }
+                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-stone-300 text-xs text-[#0F3E2E] focus:outline-none focus:border-[#0F3E2E]"
+                  />
+
+                  <p className="text-[11px] text-stone-500">
+                    Select today or a future date to begin your milk subscription.
+                  </p>
+                </div>
+              )}
 
               {/* Complete Address */}
               <div className="space-y-1 sm:col-span-2">

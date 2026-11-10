@@ -1000,11 +1000,11 @@ export const AppProvider = ({ children }) => {
               delivery.delivery_date ||
               (delivery.created_at
                 ? new Intl.DateTimeFormat('en-CA', {
-                    timeZone: 'Asia/Kolkata',
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                  }).format(new Date(delivery.created_at))
+                  timeZone: 'Asia/Kolkata',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit'
+                }).format(new Date(delivery.created_at))
                 : '')
           })
         )
@@ -2415,12 +2415,6 @@ export const AppProvider = ({ children }) => {
           );
         }
 
-        const startDate =
-          item?.startDate ||
-          new Date()
-            .toISOString()
-            .split('T')[0];
-
         /*
          * IMPORTANT:
          * Store "daily" in the database because
@@ -2432,56 +2426,25 @@ export const AppProvider = ({ children }) => {
             ? 'alternate'
             : 'daily';
 
-        const dailyPrice =
-          Number(
-            product.price || 0
-          ) * quantity;
 
         const {
-          data:
-          createdSubscription,
-          error:
-          subscriptionError
-        } =
-          await supabase
-            .from('subscriptions')
-            .insert({
-              user_id:
-                user.id,
+          data: createdSubscription,
+          error: subscriptionError
+        } = await supabase.rpc(
+          'create_customer_subscription',
+          {
+            p_product_id: productId,
+            p_quantity: quantity,
+            p_frequency: frequency,
+            p_delivery_slot:
+              deliverySlot || DEFAULT_DELIVERY_SLOT,
+            p_start_date: item?.startDate || null
+          }
+        );
 
-              product_id:
-                String(
-                  product.id
-                ),
-
-              quantity,
-
-              frequency,
-
-              delivery_slot:
-                deliverySlot ||
-                DEFAULT_DELIVERY_SLOT,
-
-              status:
-                'Active',
-
-              start_date:
-                startDate,
-
-              price_per_day:
-                dailyPrice,
-
-              bottles_exchanged:
-                0
-            })
-            .select('*')
-            .single();
-
-        if (
-          subscriptionError
-        ) {
+        if (subscriptionError) {
           console.error(
-            'Supabase subscription insert error:',
+            'Supabase subscription RPC error:',
             subscriptionError
           );
 
@@ -2551,31 +2514,15 @@ export const AppProvider = ({ children }) => {
        * Customers can only change their own
        * subscriptions.
        */
-      const query =
-        supabase
-          .from('subscriptions')
-          .update({
-            status:
-              current.status ===
-                'Active'
-                ? 'Paused'
-                : 'Active'
-          })
-          .eq(
-            'id',
-            subId
-          )
-          .eq(
-            'user_id',
-            user.id
-          )
-          .select('*')
-          .single();
-
       const {
         data,
         error
-      } = await query;
+      } = await supabase.rpc(
+        'toggle_customer_subscription_pause',
+        {
+          p_subscription_id: subId
+        }
+      );
 
       if (error) {
         console.error(
@@ -2616,7 +2563,65 @@ export const AppProvider = ({ children }) => {
           ? 'Subscription resumed'
           : 'Subscription paused'
       );
+      return true;
     };
+
+  /*
+   * ------------------------------------------------------------
+   * CANCEL CUSTOMER SUBSCRIPTION
+   * ------------------------------------------------------------
+   */
+
+  const cancelSubscription = async subId => {
+    if (!user?.id || !subId) return false;
+
+    const current = subscriptions.find(
+      sub =>
+        sub.id === subId &&
+        String(sub.userId) === String(user.id)
+    );
+
+    if (!current || !['Active', 'Paused'].includes(current.status)) {
+      showToast('This subscription cannot be cancelled.', 'error');
+      return false;
+    }
+
+    const { data, error } = await supabase.rpc(
+      'cancel_customer_subscription',
+      { p_subscription_id: subId }
+    );
+
+    if (error) {
+      console.error('Subscription cancellation failed:', error);
+      showToast(error.message, 'error');
+      return false;
+    }
+
+    if (!data || data.status !== 'Cancelled') {
+      showToast('Cancellation could not be confirmed.', 'error');
+      return false;
+    }
+
+    setSubscriptions(prev =>
+      prev.map(sub =>
+        sub.id === subId
+          ? { ...sub, status: 'Cancelled' }
+          : sub
+      )
+    );
+
+    try {
+      await logAction(
+        'SUBSCRIPTION_CANCELLED',
+        `Subscription ${subId} cancelled by customer`
+      );
+    } catch (logError) {
+      console.error('Cancellation audit logging failed:', logError);
+    }
+
+    showToast('Subscription cancelled successfully.');
+    return true;
+  };
 
   /*
    * ------------------------------------------------------------
@@ -2694,24 +2699,13 @@ export const AppProvider = ({ children }) => {
       const {
         data,
         error
-      } =
-        await supabase
-          .from('subscriptions')
-          .update({
-            quantity,
-            price_per_day:
-              pricePerDay
-          })
-          .eq(
-            'id',
-            subId
-          )
-          .eq(
-            'user_id',
-            user.id
-          )
-          .select('*')
-          .single();
+      } = await supabase.rpc(
+        'update_customer_subscription_quantity',
+        {
+          p_subscription_id: subId,
+          p_quantity: quantity
+        }
+      );
 
       if (error) {
         console.error(
@@ -4420,6 +4414,7 @@ export const AppProvider = ({ children }) => {
         fiveAmRoster,
         createSubscription,
         toggleSubscriptionPause,
+        cancelSubscription,
         updateSubscriptionQty,
         fetchSubscriptions,
 
