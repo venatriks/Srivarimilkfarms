@@ -2625,6 +2625,59 @@ export const AppProvider = ({ children }) => {
 
   /*
    * ------------------------------------------------------------
+   * DELETE CANCELLED CUSTOMER SUBSCRIPTION
+   * ------------------------------------------------------------
+   */
+
+  const deleteSubscription = async subId => {
+    if (!user?.id || !subId) return false;
+
+    const current = subscriptions.find(
+      sub =>
+        sub.id === subId &&
+        String(sub.userId) === String(user.id)
+    );
+
+    if (!current || current.status !== 'Cancelled') {
+      showToast('Only your cancelled subscriptions can be deleted.', 'error');
+      return false;
+    }
+
+    const { data, error } = await supabase.rpc(
+      'delete_customer_subscription',
+      { p_subscription_id: subId }
+    );
+
+    if (error) {
+      console.error('Subscription deletion failed:', error);
+      showToast(error.message, 'error');
+      return false;
+    }
+
+    if (data !== true) {
+      showToast('Subscription deletion could not be confirmed.', 'error');
+      return false;
+    }
+
+    setSubscriptions(prev =>
+      prev.filter(sub => sub.id !== subId)
+    );
+
+    try {
+      await logAction(
+        'SUBSCRIPTION_DELETED',
+        `Cancelled subscription ${subId} deleted by customer`
+      );
+    } catch (logError) {
+      console.error('Subscription deletion audit logging failed:', logError);
+    }
+
+    showToast('Cancelled subscription permanently deleted.');
+    return true;
+  };
+
+  /*
+   * ------------------------------------------------------------
    * UPDATE SUBSCRIPTION QUANTITY
    * ------------------------------------------------------------
    */
@@ -4415,6 +4468,7 @@ export const AppProvider = ({ children }) => {
         createSubscription,
         toggleSubscriptionPause,
         cancelSubscription,
+        deleteSubscription,
         updateSubscriptionQty,
         fetchSubscriptions,
 

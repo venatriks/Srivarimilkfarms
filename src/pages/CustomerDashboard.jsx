@@ -38,6 +38,7 @@ export const CustomerDashboard = () => {
     showToast,
     toggleSubscriptionPause,
     cancelSubscription,
+    deleteSubscription,
     updateSubscriptionQty,
   } = useApp();
 
@@ -129,6 +130,36 @@ export const CustomerDashboard = () => {
     } catch (error) {
       console.error('Subscription cancellation exception:', error);
       showToast('Unable to cancel your subscription right now.', 'error');
+    } finally {
+      setSavingSubscriptionId(null);
+    }
+  };
+
+  const handleDeleteSubscription = async (subscription) => {
+    if (!user?.id || savingSubscriptionId !== null) return;
+
+    if (
+      String(subscription.userId) !== String(user.id) ||
+      subscription.status !== 'Cancelled'
+    ) {
+      showToast('Only your cancelled subscriptions can be deleted.', 'error');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'PERMANENTLY DELETE this cancelled subscription? ' +
+      'This action cannot be undone. The subscription record will be removed.'
+    );
+
+    if (!confirmed) return;
+
+    setSavingSubscriptionId(subscription.id);
+
+    try {
+      await deleteSubscription(subscription.id);
+    } catch (error) {
+      console.error('Subscription deletion exception:', error);
+      showToast('Unable to delete your subscription right now.', 'error');
     } finally {
       setSavingSubscriptionId(null);
     }
@@ -308,6 +339,19 @@ export const CustomerDashboard = () => {
                           </>
                         )}
                     </button>
+
+                    {isCancelled && (
+                      <button
+                        type="button"
+                        disabled={savingSubscriptionId !== null}
+                        onClick={() => handleDeleteSubscription(subscription)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {savingSubscriptionId === subscription.id
+                          ? 'Deleting...'
+                          : 'Delete Subscription'}
+                      </button>
+                    )}
 
                     {canModifySubscription && (
                       <button
