@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   CheckCircle,
@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
+
+const CHECKOUT_API_URL = 'https://d4qlj85684.execute-api.ap-south-1.amazonaws.com/checkout';
 
 export const CheckoutModal = () => {
   const {
@@ -32,7 +34,7 @@ export const CheckoutModal = () => {
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '+91 ');
   const [address, setAddress] = useState(user?.address || '');
-  const [paymentMethod, setPaymentMethod] = useState(user ? 'wallet' : 'upi');
+  const [paymentMethod, setPaymentMethod] = useState('upi');
   const [deliverySlot, setDeliverySlot] = useState('5:30 AM - 6:30 AM');
   const [subscriptionStartDate, setSubscriptionStartDate] = useState('');
   const [instructions, setInstructions] = useState(
@@ -40,6 +42,8 @@ export const CheckoutModal = () => {
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const attemptRef = useRef(null);
+  const completedSubscriptionsRef = useRef(new Map());
 
   // Sync customer details whenever the user or modal changes
   useEffect(() => {
@@ -51,6 +55,10 @@ export const CheckoutModal = () => {
       setPaymentMethod('upi');
     }
 
+    if (!checkoutOpen) {
+      attemptRef.current = null;
+      completedSubscriptionsRef.current.clear();
+    }
     setSubmitError('');
   }, [user, checkoutOpen]);
 
@@ -128,12 +136,9 @@ export const CheckoutModal = () => {
       }
     }
 
-    const formattedPaymentMethod =
-      paymentMethod === 'wallet'
-        ? 'Srivari Wallet'
-        : paymentMethod === 'upi'
-          ? 'UPI Instant Pay'
-          : 'Cash on Delivery';
+    const formattedPaymentMethod = paymentMethod === 'upi'
+      ? 'UPI Instant Pay'
+      : 'Cash on Delivery';
 
     try {
       setSubmitting(true);
@@ -143,7 +148,12 @@ export const CheckoutModal = () => {
       // -----------------------------------------------------
       // Create real Supabase subscription rows for subscription items
       // -----------------------------------------------------
-      for (const item of subscriptionItems) {
+      for (const [index, item] of subscriptionItems.entries()) {
+        const subscriptionKey = `${index}:${JSON.stringify(item)}:${subscriptionStartDate}:${deliverySlot}`;
+        if (completedSubscriptionsRef.current.has(subscriptionKey)) {
+          createdSubscriptions.push(completedSubscriptionsRef.current.get(subscriptionKey));
+          continue;
+        }
 
         const createdSubscription = await createSubscription({
           item: {
@@ -159,6 +169,7 @@ export const CheckoutModal = () => {
           );
         }
 
+        completedSubscriptionsRef.current.set(subscriptionKey, createdSubscription);
         createdSubscriptions.push(createdSubscription);
       }
 
@@ -190,32 +201,63 @@ export const CheckoutModal = () => {
           );
         }
 
-        const { data, error } = await supabase.rpc(
-          'create_one_time_order',
-          {
-            p_customer_name: customerName.trim(),
-            p_customer_email: customerEmail.trim().toLowerCase(),
-            p_customer_phone: phone.trim(),
-            p_address: address.trim(),
-            p_items: rpcItems,
-            p_delivery_slot: deliverySlot,
-            p_instructions: instructions.trim() || null,
-            p_payment_method: formattedPaymentMethod
-          }
-        );
-
-        if (error) {
-          console.error('One-time order creation failed:', error);
-          throw error;
+        const orderPayload = {
+          p_customer_name: customerName.trim(),
+          p_customer_email: customerEmail.trim().toLowerCase(),
+          p_customer_phone: phone.trim(),
+          p_address: address.trim(),
+          p_items: rpcItems,
+          p_delivery_slot: deliverySlot,
+          p_instructions: instructions.trim() || null,
+          p_payment_method: formattedPaymentMethod
+        };
+        const fingerprint = JSON.stringify(orderPayload);
+        if (!attemptRef.current || attemptRef.current.fingerprint !== fingerprint) {
+          attemptRef.current = {
+            fingerprint,
+            key: crypto.randomUUID()
+          };
         }
-
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw new Error('Unable to verify your session. Please retry.');
+        if (user && !sessionData?.session?.access_token) {
+          throw new Error('Your session has expired. Please sign in again.');
+        }
+        const requestHeaders = { 'Content-Type': 'application/json' };
+        if (sessionData?.session?.access_token) {
+          requestHeaders.Authorization = `Bearer ${sessionData.session.access_token}`;
+        }
+        let response;
+        try {
+          response = await fetch(CHECKOUT_API_URL, {
+            method: 'POST',
+            headers: requestHeaders,
+            body: JSON.stringify({
+              ...orderPayload,
+              p_idempotency_key: attemptRef.current.key
+            })
+          });
+        } catch {
+          throw new Error(
+            'Checkout connection failed. Your order may have been placed. Please check your orders before trying again.'
+          );
+        }
+        let result;
+        try { result = await response.json(); } catch { result = null; }
+        if (!response.ok || !result?.success) {
+          throw new Error(result?.error || 'Unable to place order. Please retry.');
+        }
+        const data = result.order;
         createdOrder = Array.isArray(data) ? data[0] : data;
+        if (!createdOrder) throw new Error('Checkout returned no order. Please retry.');
       }
 
       if (typeof clearCart === 'function') {
         clearCart();
       }
 
+      attemptRef.current = null;
+      completedSubscriptionsRef.current.clear();
       setCheckoutOpen(false);
 
       if (createdSubscriptions.length > 0 && createdOrder) {
