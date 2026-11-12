@@ -16,6 +16,42 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 
 const CHECKOUT_API_URL = 'https://d4qlj85684.execute-api.ap-south-1.amazonaws.com/checkout';
+const CHECKOUT_ATTEMPT_STORAGE_KEY = 'srivari_checkout_pending_v1';
+const CHECKOUT_ATTEMPT_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Only a digest of checkout details is stored, never customer details or a token.
+const checkoutFingerprint = async (payload, customerId) => {
+  const encoded = new TextEncoder().encode(JSON.stringify({ customerId: customerId || null, payload }));
+  const digest = await crypto.subtle.digest('SHA-256', encoded);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const readPendingCheckout = () => {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_ATTEMPT_STORAGE_KEY);
+    if (!raw) return null;
+    const attempt = JSON.parse(raw);
+    if (typeof attempt?.fingerprint !== 'string' ||
+      typeof attempt?.key !== 'string' ||
+      !Number.isFinite(attempt?.createdAt) ||
+      Date.now() - attempt.createdAt > CHECKOUT_ATTEMPT_TTL_MS ||
+      attempt.createdAt > Date.now()) {
+      sessionStorage.removeItem(CHECKOUT_ATTEMPT_STORAGE_KEY);
+      return null;
+    }
+    return attempt;
+  } catch {
+    return null;
+  }
+};
+
+const savePendingCheckout = (attempt) => {
+  sessionStorage.setItem(CHECKOUT_ATTEMPT_STORAGE_KEY, JSON.stringify(attempt));
+};
+
+const clearPendingCheckout = () => {
+  sessionStorage.removeItem(CHECKOUT_ATTEMPT_STORAGE_KEY);
+};
 
 export const CheckoutModal = () => {
   const {
@@ -56,7 +92,6 @@ export const CheckoutModal = () => {
     }
 
     if (!checkoutOpen) {
-      attemptRef.current = null;
       completedSubscriptionsRef.current.clear();
     }
     setSubmitError('');
@@ -211,13 +246,21 @@ export const CheckoutModal = () => {
           p_instructions: instructions.trim() || null,
           p_payment_method: formattedPaymentMethod
         };
-        const fingerprint = JSON.stringify(orderPayload);
-        if (!attemptRef.current || attemptRef.current.fingerprint !== fingerprint) {
+        const fingerprint = await checkoutFingerprint(orderPayload, user?.id);
+        const pendingAttempt = attemptRef.current || readPendingCheckout();
+        if (pendingAttempt?.fingerprint === fingerprint &&
+          Date.now() - pendingAttempt.createdAt <= CHECKOUT_ATTEMPT_TTL_MS) {
+          attemptRef.current = pendingAttempt;
+        } else {
           attemptRef.current = {
             fingerprint,
-            key: crypto.randomUUID()
+            key: crypto.randomUUID(),
+            createdAt: Date.now()
           };
         }
+        // Persist before contacting the server: a lost response or page refresh
+        // must not turn the same checkout into a second order.
+        savePendingCheckout(attemptRef.current);
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw new Error('Unable to verify your session. Please retry.');
         if (user && !sessionData?.session?.access_token) {
@@ -257,6 +300,7 @@ export const CheckoutModal = () => {
       }
 
       attemptRef.current = null;
+      clearPendingCheckout();
       completedSubscriptionsRef.current.clear();
       setCheckoutOpen(false);
 
