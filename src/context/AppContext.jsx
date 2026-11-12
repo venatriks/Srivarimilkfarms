@@ -172,6 +172,7 @@ export const AppProvider = ({ children }) => {
     useState(false);
 
   const idleTimerRef = useRef(null);
+  const legacyCheckoutAttemptRef = useRef(null);
 
   const [cart, setCart] = useState([]);
 
@@ -2811,151 +2812,85 @@ export const AppProvider = ({ children }) => {
    * ------------------------------------------------------------
    */
 
-  const placeOneTimeOrder =
-    async details => {
-      if (
-        !isSupabaseConfigured()
-      ) {
-        showToast(
-          'Supabase is not configured.',
-          'error'
-        );
+  const placeOneTimeOrder = async details => {
+    if (!cart.length) {
+      showToast('Your cart is empty.', 'error');
+      return null;
+    }
 
-        return null;
+    if (cart.some(item => item.buyType === 'subscription')) {
+      showToast('Please checkout subscription and one-time items separately.', 'error');
+      return null;
+    }
+
+    try {
+      const payload = {
+        p_customer_name: String(details?.customerName || user?.name || '').trim(),
+        p_customer_email: String(details?.customerEmail || user?.email || '').trim().toLowerCase(),
+        p_customer_phone: String(details?.customerPhone || user?.phone || '').trim(),
+        p_address: String(details?.address || user?.address || '').trim(),
+        p_items: cart.map(item => ({
+          product_id: String(item.productId || item.product_id || item.product?.id || ''),
+          quantity: Number(item.quantity || 1)
+        })),
+        p_delivery_slot: details?.deliverySlot || DEFAULT_DELIVERY_SLOT,
+        p_instructions: String(details?.instructions || '').trim() || null,
+        p_payment_method: details?.paymentMethod || 'UPI Instant Pay'
+      };
+
+      const fingerprint = JSON.stringify(payload);
+      if (legacyCheckoutAttemptRef.current?.fingerprint !== fingerprint) {
+        legacyCheckoutAttemptRef.current = {
+          fingerprint,
+          key: crypto.randomUUID()
+        };
       }
 
-      if (!cart.length) {
-        showToast(
-          'Your cart is empty.',
-          'error'
-        );
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw new Error('Unable to verify your session. Please retry.');
+      const token = sessionData?.session?.access_token;
+      if (user && !token) throw new Error('Your session has expired. Please sign in again.');
 
-        return null;
-      }
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
+      let response;
       try {
-        const rpcItems =
-          cart.map(item => ({
-            product_id:
-              String(
-                item.productId ||
-                item.product_id ||
-                item.product?.id ||
-                ''
-              ),
-
-            quantity:
-              Number(
-                item.quantity ||
-                1
-              )
-          }));
-
-        const {
-          data,
-          error
-        } =
-          await supabase.rpc(
-            'create_one_time_order',
-            {
-              p_customer_name:
-                String(
-                  details?.customerName ||
-                  user?.name ||
-                  ''
-                ).trim(),
-
-              p_customer_email:
-                String(
-                  details?.customerEmail ||
-                  user?.email ||
-                  ''
-                )
-                  .trim()
-                  .toLowerCase(),
-
-              p_customer_phone:
-                String(
-                  details?.customerPhone ||
-                  user?.phone ||
-                  ''
-                ).trim(),
-
-              p_address:
-                String(
-                  details?.address ||
-                  user?.address ||
-                  ''
-                ).trim(),
-
-              p_items:
-                rpcItems,
-
-              p_delivery_slot:
-                details?.deliverySlot ||
-                DEFAULT_DELIVERY_SLOT,
-
-              p_instructions:
-                String(
-                  details?.instructions ||
-                  ''
-                ).trim() ||
-                null,
-
-              p_payment_method:
-                details?.paymentMethod ||
-                'UPI Instant Pay'
-            }
-          );
-
-        if (error) {
-          throw error;
-        }
-
-        const rpcResult =
-          Array.isArray(data)
-            ? data[0]
-            : data;
-
-        const createdOrder =
-          typeof rpcResult === 'string'
-            ? { id: rpcResult }
-            : rpcResult;
-
-        clearCart();
-
-        setCheckoutOpen(
-          false
-        );
-
-        await fetchOrders();
-
-        await logAction(
-          'ONE_TIME_ORDER_PLACED',
-          `One-time order ${createdOrder?.id || 'created'} placed`
-        );
-
-        showToast(
-          'Order confirmed successfully!',
-          'success'
-        );
-
-        return createdOrder;
-      } catch (error) {
-        console.error(
-          'One-time order creation failed:',
-          error
-        );
-
-        showToast(
-          error?.message ||
-          'Unable to place your order.',
-          'error'
-        );
-
-        return null;
+        response = await fetch('https://d4qlj85684.execute-api.ap-south-1.amazonaws.com/checkout', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            ...payload,
+            p_idempotency_key: legacyCheckoutAttemptRef.current.key
+          })
+        });
+      } catch {
+        throw new Error('Checkout connection failed. Your order may have been placed. Please check your orders before trying again.');
       }
-    };
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Unable to place order. Please retry.');
+      }
+
+      const rawOrder = Array.isArray(result.order) ? result.order[0] : result.order;
+      if (!rawOrder) throw new Error('Checkout returned no order. Please retry.');
+      const createdOrder = typeof rawOrder === 'string' ? { id: rawOrder } : rawOrder;
+
+      legacyCheckoutAttemptRef.current = null;
+      clearCart();
+      setCheckoutOpen(false);
+      if (user?.id) await fetchOrders().catch(error => console.error('Order refresh failed:', error));
+      await logAction('ONE_TIME_ORDER_PLACED', `One-time order ${createdOrder.id || 'created'} placed`)
+        .catch(error => console.error('Order audit log failed:', error));
+      showToast('Order confirmed successfully!', 'success');
+      return createdOrder;
+    } catch (error) {
+      console.error('One-time order creation failed:', error);
+      showToast(error?.message || 'Unable to place your order.', 'error');
+      return null;
+    }
+  };
 
   /*
    * ------------------------------------------------------------
