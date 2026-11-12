@@ -1179,6 +1179,7 @@ export const AppProvider = ({ children }) => {
         (data || []).map(
           order => ({
             id: order.id,
+            orderNumber: order.order_number || order.id,
             customerName:
               order.customer_name,
             customerEmail:

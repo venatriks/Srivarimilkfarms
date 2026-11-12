@@ -262,7 +262,7 @@ export const CheckoutModal = () => {
 
       if (createdSubscriptions.length > 0 && createdOrder) {
         showToast(
-          `${createdSubscriptions.length} subscription${createdSubscriptions.length > 1 ? 's' : ''} and ${createdOrder.id || 'one-time order'} confirmed successfully!`,
+          `${createdSubscriptions.length} subscription${createdSubscriptions.length > 1 ? 's' : ''} and ${createdOrder.order_number || createdOrder.id || 'one-time order'} confirmed successfully!`,
           'success'
         );
       } else if (createdSubscriptions.length > 0) {
@@ -272,7 +272,7 @@ export const CheckoutModal = () => {
         );
       } else if (createdOrder) {
         showToast(
-          `${createdOrder.id || 'Order'} confirmed successfully! Your order will be prepared for morning delivery.`,
+          `${createdOrder.order_number || createdOrder.id || 'Order'} confirmed successfully! Your order will be prepared for morning delivery.`,
           'success'
         );
       }

@@ -504,6 +504,7 @@ export const AdminDashboard = () => {
     const itemsText = (o.items || []).map(i => i.name).join(' ');
     const matchesSearch =
       (o.id || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
+      (o.orderNumber || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
       (o.customerName || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
       (o.customerEmail || '').toLowerCase().includes(searchOneTimeOrders.toLowerCase()) ||
       (o.customerPhone || '').includes(searchOneTimeOrders) ||
@@ -2611,8 +2612,8 @@ export const AdminDashboard = () => {
                         <td className="p-2 border border-stone-300 text-[10px] text-stone-800">
                           {item.assignedEmployeeId
                             ? employees.find(
-                                employee => employee.id === item.assignedEmployeeId
-                              )?.name || 'Employee Unavailable'
+                              employee => employee.id === item.assignedEmployeeId
+                            )?.name || 'Employee Unavailable'
                             : 'Not Assigned'}
                         </td>
                         <td className="p-2 border border-stone-300 text-center font-bold">
@@ -3022,7 +3023,7 @@ export const AdminDashboard = () => {
 
                       {/* Order ID & Date */}
                       <td className="py-4 px-4">
-                        <span className="font-bold text-[#042B1B] font-mono block">{ord.id}</span>
+                        <span className="font-bold text-[#042B1B] font-mono block">{ord.orderNumber || ord.id}</span>
                         <span className="text-[10px] text-stone-500 block">{ord.orderDate}</span>
                       </td>
 
