@@ -24,3 +24,32 @@ dist-ssr
 *.sw?
 .env
 supabase/create_admin.sql.local
+
+# AWS backend local artifacts
+aws-backend/*.zip
+aws-backend/.env*
+!aws-backend/.env.example
+
+# Local backups and test files
+backups/
+aws-backend/backups/
+checkout-test.json
+*.before-*
+*.backup
+
+# AWS backend local audits and diagnostics
+aws-backend/*.tar.gz
+aws-backend/*-review.txt
+aws-backend/*-test.json
+aws-backend/*-response.json
+
+# AWS backend local test fixtures
+aws-backend/lambda-auth-test.json
+aws-backend/lambda-subscription-trust.json
+aws-backend/lambda-validation-test.json
+
+# AWS backend diagnostic Lambda
+aws-backend/src/testSupabaseConnection.js
+
+# Local subscription Lambda deployment package
+aws-backend/subscription-lambda-package/
