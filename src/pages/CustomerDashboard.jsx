@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { getRecurringPaymentStatus } from '../lib/recurringPaymentStatus';
+import { createSubscriptionPaymentOrder } from '../lib/subscriptionPayment';
+import { openSubscriptionRazorpay } from '../lib/razorpayCheckout';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -25,6 +28,48 @@ const formatDate = (value) => {
 const getUnitLabel = (product) => {
   if (!product?.unit) return 'Liter';
   return String(product.unit).replace(/^1\s*/i, '').trim() || 'Liter';
+};
+
+const RECURRING_INTERVALS = {
+  every_7_days: 7,
+  every_15_days: 15,
+  every_30_days: 30
+};
+
+const getNextRecurringDate = (startDate, frequency) => {
+  const interval = RECURRING_INTERVALS[frequency];
+
+  if (!interval || !/^\d{4}-\d{2}-\d{2}$/.test(startDate || '')) {
+    return null;
+  }
+
+  const start = new Date(`${startDate}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) ||
+      start.toISOString().slice(0, 10) !== startDate) {
+    return null;
+  }
+
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+
+  const todayDate = new Date(`${today}T00:00:00Z`);
+  const daysElapsed = Math.floor(
+    (todayDate.getTime() - start.getTime()) / 86400000
+  );
+
+  const intervalsElapsed = Math.max(
+    0,
+    Math.ceil(daysElapsed / interval)
+  );
+
+  const next = new Date(start);
+  next.setUTCDate(start.getUTCDate() + intervalsElapsed * interval);
+
+  return next.toISOString().slice(0, 10);
 };
 
 export const CustomerDashboard = () => {
@@ -50,6 +95,41 @@ export const CustomerDashboard = () => {
     'Leave inside insulated doorstep bag outside Flat 402'
   );
   const [savingSubscriptionId, setSavingSubscriptionId] = useState(null);
+  const [payingSubscriptionId, setPayingSubscriptionId] = useState(null);
+
+  const [recurringPaymentStatuses, setRecurringPaymentStatuses] =
+    useState({});
+  const [loadingRecurringStatusId, setLoadingRecurringStatusId] =
+    useState(null);
+
+  const handleLoadRecurringPaymentStatus = async (subscription) => {
+    if (!user?.id || loadingRecurringStatusId) return;
+
+    setLoadingRecurringStatusId(subscription.id);
+
+    try {
+      const result = await getRecurringPaymentStatus(subscription.id);
+
+      setRecurringPaymentStatuses(previous => ({
+        ...previous,
+        [subscription.id]: {
+          data: result,
+          error: null
+        }
+      }));
+    } catch (error) {
+      setRecurringPaymentStatuses(previous => ({
+        ...previous,
+        [subscription.id]: {
+          data: null,
+          error: error.message || 'Unable to load payment status.'
+        }
+      }));
+    } finally {
+      setLoadingRecurringStatusId(null);
+    }
+  };
+
 
   /*
    * AppContext intentionally keeps the complete Supabase subscription/order
@@ -84,6 +164,70 @@ export const CustomerDashboard = () => {
       (product) => String(product.id) === String(subscription.productId)
     );
 
+
+  const handlePaySubscription = async (subscription, deliveryDate) => {
+    if (!user?.id || payingSubscriptionId !== null) return;
+
+    if (
+      String(subscription.userId) !== String(user.id) ||
+      subscription.status === 'Cancelled' ||
+      !deliveryDate
+    ) {
+      showToast('This subscription is not eligible for payment.', 'error');
+      return;
+    }
+
+    setPayingSubscriptionId(subscription.id);
+
+    try {
+      // Backend validates ownership, invoice, amount and payment deadline.
+      const order = await createSubscriptionPaymentOrder(
+        subscription.id,
+        deliveryDate
+      );
+
+      const result = await openSubscriptionRazorpay({
+        order,
+        customer: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone
+        }
+      });
+
+      if (result?.submitted) {
+        // Refresh server-side payment status after Razorpay submission.
+        // The browser callback itself is not proof of settlement.
+        try {
+          const paymentStatus = await getRecurringPaymentStatus(subscription.id);
+          setRecurringPaymentStatuses(previous => ({
+            ...previous,
+            [subscription.id]: { data: paymentStatus, error: null }
+          }));
+        } catch (statusError) {
+          console.warn('Payment status refresh unavailable:', statusError);
+        }
+        showToast(
+          'Payment submitted. Check Payment Status for verified confirmation. ' +
+          'Delivery remains subject to payment eligibility and approval.',
+          'success'
+        );
+      } else {
+        showToast(
+          'Payment was not completed. You can retry while the payment window remains open.',
+          'info'
+        );
+      }
+    } catch (error) {
+      console.error('Subscription payment error:', error);
+      showToast(
+        error?.message || 'Unable to initiate subscription payment.',
+        'error'
+      );
+    } finally {
+      setPayingSubscriptionId(null);
+    }
+  };
 
   const handlePauseResume = async (subscription) => {
     if (!user?.id || savingSubscriptionId) return;
@@ -261,12 +405,21 @@ export const CustomerDashboard = () => {
               const isPaused = subscription.status === 'Paused';
               const isCancelled = subscription.status === 'Cancelled';
               const canModifySubscription = isActive || isPaused;
+              const canChangeQuantity = false; // Until secure quantity billing is implemented
               const bottlesExchanged = Number(
                 subscription.bottlesExchanged || 0
               );
               const pricePerDay = Number(
                 subscription.pricePerDay || 0
               );
+              const recurringDays = RECURRING_INTERVALS[subscription.frequency];
+              const isRecurring = Boolean(recurringDays);
+              const nextRecurringDate = isRecurring
+                ? getNextRecurringDate(
+                    subscription.startDate,
+                    subscription.frequency
+                  )
+                : null;
 
               return (
                 <div
@@ -304,82 +457,303 @@ export const CustomerDashboard = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={
-                        !canModifySubscription ||
-                        savingSubscriptionId !== null
-                      }
-                      onClick={() => handlePauseResume(subscription)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 ${isActive
-                        ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                        : 'bg-[#0F3E2E] text-white hover:bg-[#18523f]'
-                        }`}
-                    >
-                      {isCancelled ? (
-                        <span>Subscription Cancelled</span>
-                      )
-                        : isActive ? (
-                          <>
-                            <PauseCircle className="w-4 h-4" />
-                            <span>
-                              {savingSubscriptionId === subscription.id
-                                ? 'Saving...'
-                                : 'Pause Delivery'}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <PlayCircle className="w-4 h-4 text-[#D4AF37]" />
-                            <span>
-                              {savingSubscriptionId === subscription.id
-                                ? 'Saving...'
-                                : 'Resume Delivery'}
-                            </span>
-                          </>
-                        )}
-                    </button>
-
-                    {isCancelled && (
                       <button
                         type="button"
-                        disabled={savingSubscriptionId !== null}
-                        onClick={() => handleDeleteSubscription(subscription)}
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                        disabled={
+                          !canModifySubscription ||
+                          savingSubscriptionId !== null
+                        }
+                        onClick={() => handlePauseResume(subscription)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 ${isActive
+                          ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                          : 'bg-[#0F3E2E] text-white hover:bg-[#18523f]'
+                          }`}
                       >
-                        {savingSubscriptionId === subscription.id
-                          ? 'Deleting...'
-                          : 'Delete Subscription'}
+                        {isCancelled ? (
+                          <span>Subscription Cancelled</span>
+                        )
+                          : isActive ? (
+                            <>
+                              <PauseCircle className="w-4 h-4" />
+                              <span>
+                                {savingSubscriptionId === subscription.id
+                                  ? 'Saving...'
+                                  : 'Pause Delivery'}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="w-4 h-4 text-[#D4AF37]" />
+                              <span>
+                                {savingSubscriptionId === subscription.id
+                                  ? 'Saving...'
+                                  : 'Resume Delivery'}
+                              </span>
+                            </>
+                          )}
                       </button>
-                    )}
 
-                    {canModifySubscription && (
-                      <button
-                        type="button"
-                        disabled={savingSubscriptionId !== null}
-                        onClick={() => handleCancelSubscription(subscription)}
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 disabled:opacity-50"
-                      >
-                        {savingSubscriptionId === subscription.id
-                          ? 'Saving...'
-                          : 'Cancel Subscription'}
-                      </button>
-                    )}
+                      {isCancelled && (
+                        <button
+                          type="button"
+                          disabled={savingSubscriptionId !== null}
+                          onClick={() => handleDeleteSubscription(subscription)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {savingSubscriptionId === subscription.id
+                            ? 'Deleting...'
+                            : 'Delete Subscription'}
+                        </button>
+                      )}
+
+                      {canModifySubscription && (
+                        <button
+                          type="button"
+                          disabled={savingSubscriptionId !== null}
+                          onClick={() => handleCancelSubscription(subscription)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 disabled:opacity-50"
+                        >
+                          {savingSubscriptionId === subscription.id
+                            ? 'Saving...'
+                            : 'Cancel Subscription'}
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {isRecurring && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-2 text-xs">
+                      <p className="font-bold text-[#0F3E2E]">
+                        Recurring Delivery — Every {recurringDays} Days
+                      </p>
+                      <p className="text-stone-700">
+                        Original Start Date: {subscription.startDate || 'Unavailable'}
+                      </p>
+                      <p className="text-stone-700">
+                        {isCancelled
+                          ? 'Future deliveries cancelled'
+                          : nextRecurringDate
+                            ? `Next Scheduled Date: ${nextRecurringDate}`
+                            : 'Next scheduled date unavailable'}
+                      </p>
+                      <p className="text-stone-700">
+                        Admin Approval: {subscription.approvalStatus || 'Pending'}
+                      </p>
+                      <p className="text-amber-800">
+                        Each delivery requires separate prepaid payment before
+                        11:59 PM IST on the previous calendar day.
+                        Delivery is subject to verified payment and approval.
+                      </p>
+                      <p className="text-stone-600">
+                        Use Pay Now to initiate payment for the next
+                        scheduled recurring delivery. Payment verification
+                        and delivery approval remain mandatory.
+                      </p>
+
+                      <button
+                        type="button"
+                        disabled={
+                          payingSubscriptionId !== null ||
+                          !nextRecurringDate ||
+                          isCancelled
+                        }
+                        onClick={() =>
+                          handlePaySubscription(
+                            subscription,
+                            nextRecurringDate
+                          )
+                        }
+                        className="mt-3 px-4 py-2 rounded-xl bg-[#0F3E2E] text-white text-sm font-bold disabled:opacity-50"
+                      >
+                        {payingSubscriptionId === subscription.id
+                          ? 'Opening Payment...'
+                          : 'Pay Now'}
+                      </button>
+
+                    </div>
+                  )}
+
+
+                  {isRecurring && (
+                    <div className="rounded-2xl border border-stone-200 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h4 className="font-bold text-sm text-[#0F3E2E]">
+                          Delivery Payment Status
+                        </h4>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleLoadRecurringPaymentStatus(subscription)
+                          }
+                          disabled={loadingRecurringStatusId !== null}
+                          className="px-3 py-2 rounded-lg bg-[#0F3E2E] text-white text-xs font-bold disabled:opacity-50"
+                        >
+                          {loadingRecurringStatusId === subscription.id
+                            ? 'Checking...'
+                            : 'Check Payment Status'}
+                        </button>
+                      </div>
+
+                      {recurringPaymentStatuses[subscription.id]?.error && (
+                        <p className="text-xs text-red-700">
+                          {recurringPaymentStatuses[subscription.id].error}
+                        </p>
+                      )}
+
+                      {recurringPaymentStatuses[subscription.id]?.data && (() => {
+                        const result =
+                          recurringPaymentStatuses[subscription.id].data;
+
+                        const delivery = result.next_delivery;
+                        const missed = result.missed_delivery;
+
+                        const formatDeadline = (value) =>
+                          value
+                            ? new Date(value).toLocaleString('en-IN', {
+                                timeZone: 'Asia/Kolkata',
+                                dateStyle: 'medium',
+                                timeStyle: 'short'
+                              }) + ' IST'
+                            : 'Unavailable';
+
+                        const paymentLabel = (attempt) => {
+                          const decision =
+                            attempt?.delivery_payment_decision;
+
+                          if (decision === 'eligible') {
+                            return 'Payment evidence eligible';
+                          }
+
+                          if (decision === 'late') {
+                            return 'Payment received after deadline';
+                          }
+
+                          if (decision === 'needs_review') {
+                            return 'Payment under review — delivery not authorized';
+                          }
+
+                          return 'Not verified';
+                        };
+
+                        if (!delivery && !missed) {
+                          return (
+                            <p className="text-xs text-stone-600">
+                              Delivery payment information is unavailable.
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-4 text-xs text-stone-700">
+                            {missed && (
+                              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+                                <p className="font-bold text-amber-900">
+                                  Today's Scheduled Delivery
+                                </p>
+
+                                <p>
+                                  <strong>Date:</strong> {missed.date}
+                                </p>
+
+                                <p>
+                                  <strong>Payment Deadline:</strong>{' '}
+                                  {formatDeadline(missed.payment_due_at)}
+                                </p>
+
+                                <p>
+                                  <strong>Payment Status:</strong>{' '}
+                                  {missed.payment_state === 'payment_eligible'
+                                    ? 'Payment eligible — delivery subject to approval and entitlement'
+                                    : missed.payment_state === 'under_review'
+                                      ? 'Payment under review — delivery not authorized'
+                                      : missed.payment_state === 'late'
+                                        ? 'Payment received after deadline — delivery not authorized'
+                                        : 'Payment missed — delivery not authorized'}
+                                </p>
+
+                                <p>
+                                  <strong>Invoice:</strong>{' '}
+                                  {missed.invoice?.status || 'Not generated'}
+                                </p>
+
+                                <p>
+                                  <strong>Payment Attempt:</strong>{' '}
+                                  {missed.payment_attempt?.status ||
+                                    'No payment attempt'}
+                                </p>
+                              </div>
+                            )}
+
+                            {delivery && (
+                              <div className="rounded-xl border border-stone-200 p-3 space-y-2">
+                                <p className="font-bold text-[#0F3E2E]">
+                                  Next Payable Scheduled Delivery
+                                </p>
+
+                                <p>
+                                  <strong>Date:</strong> {delivery.date}
+                                </p>
+
+                                <p>
+                                  <strong>Payment Deadline:</strong>{' '}
+                                  {formatDeadline(delivery.payment_due_at)}
+                                </p>
+
+                                <p>
+                                  <strong>Invoice:</strong>{' '}
+                                  {delivery.invoice?.status || 'Not generated'}
+                                </p>
+
+                                {delivery.invoice && (
+                                  <p>
+                                    <strong>Amount:</strong>{' '}
+                                    ₹{(
+                                      delivery.invoice.amount_due_paise / 100
+                                    ).toFixed(2)}
+                                  </p>
+                                )}
+
+                                <p>
+                                  <strong>Payment:</strong>{' '}
+                                  {delivery.payment_attempt?.status ||
+                                    'No payment attempt'}
+                                </p>
+
+                                <p>
+                                  <strong>Verification:</strong>{' '}
+                                  {paymentLabel(delivery.payment_attempt)}
+                                </p>
+
+                                <p className="font-medium text-amber-800">
+                                  {delivery.delivery_entitlement_confirmed === true
+                                    ? 'Delivery entitlement confirmed'
+                                    : 'Delivery entitlement not confirmed'}
+                                </p>
+                              </div>
+                            )}
+
+                            <p className="text-stone-500">
+                              Recurring online payment is not yet enabled.
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   {/* Quantity / delivery / price */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                     <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-2">
                       <span className="text-stone-500 font-medium">
-                        Daily Quantity
+                        {isRecurring ? 'Quantity per Delivery' : 'Daily Quantity'}
                       </span>
 
                       <div className="flex items-center justify-between gap-3">
                         <button
                           type="button"
                           disabled={
-                            !canModifySubscription ||
+                            !canChangeQuantity ||
                             savingSubscriptionId !== null ||
                             quantity <= 1
                           }
@@ -403,7 +777,7 @@ export const CustomerDashboard = () => {
                         <button
                           type="button"
                           disabled={
-                            !canModifySubscription ||
+                            !canChangeQuantity ||
                             savingSubscriptionId !== null
                           }
                           onClick={() =>
@@ -437,15 +811,20 @@ export const CustomerDashboard = () => {
 
                     <div className="bg-[#FDFBF7] p-4 rounded-2xl border border-stone-200 space-y-1">
                       <span className="text-stone-500 font-medium">
-                        Daily Amount
+                        {isRecurring ? 'Amount per Delivery' : 'Daily Amount'}
                       </span>
 
                       <p className="font-bold text-[#0F3E2E] text-sm">
-                        ₹{pricePerDay.toFixed(0)} / day
+                        ₹{pricePerDay.toFixed(0)}
+                        {isRecurring ? ' / delivery' : ' / day'}
                       </p>
 
                       <p className="text-[10px] text-stone-500">
-                        Auto-deducted from wallet
+                        {subscription.billingType === 'prepaid'
+                          ? 'Prepaid subscription'
+                          : subscription.billingType === 'postpaid'
+                            ? 'Postpaid — billed for delivered quantities'
+                            : 'Select a subscription plan to continue'}
                       </p>
                     </div>
                   </div>

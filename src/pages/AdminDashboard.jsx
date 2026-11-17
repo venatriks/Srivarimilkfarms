@@ -14,7 +14,7 @@ export const AdminDashboard = () => {
     user,
     authLoading,
     products, updateProductStockOrPrice, adjustProductInventory, addProduct, deleteProduct,
-    distributionList, updateDistributionStatus, updateDeliveryAgent,
+    distributionList, fetchDeliveries, updateDistributionStatus, updateDeliveryAgent,
     dbUsers, addDbUser, updateDbUser, deleteDbUser,
     orders,
     subscriptions,
@@ -26,6 +26,422 @@ export const AdminDashboard = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState('distribution'); // 'distribution' | 'users' | 'products' | 'queries' | 'employees' | 'onetime-orders' | 'database' | 'add'
+  const [approvingSubscriptionId, setApprovingSubscriptionId] = useState(null);
+  const [confirmingDeliveryId, setConfirmingDeliveryId] = useState(null);
+  const [confirmedDeliveryOverrides, setConfirmedDeliveryOverrides] = useState({});
+  const [recurringStatusOverrides, setRecurringStatusOverrides] = useState({});
+
+  const [editingDelivery, setEditingDelivery] = useState(null);
+  const [deliveryEditForm, setDeliveryEditForm] = useState({});
+  const [savingDeliveryEdit, setSavingDeliveryEdit] = useState(false);
+  const [deliveryEditOverrides, setDeliveryEditOverrides] = useState({});
+
+  const openDeliveryEditor = (item) => {
+    const currentStatus = getRosterStatus(item);
+
+    if (
+      isRecurringProductDelivery(item) &&
+      ['Delivered', 'Cancelled'].includes(currentStatus)
+    ) {
+      showToast('Finalized recurring delivery cannot be edited.', 'error');
+      return;
+    }
+
+    const current = {
+      ...item,
+      ...(deliveryEditOverrides[item.id] || {})
+    };
+
+    setDeliveryEditForm({
+      customer_name: current.customerName || '',
+      address: current.address || '',
+      phone: current.phone || '',
+      quantity: String(current.quantity ?? ''),
+      bottle_return_count: Number(current.bottleReturnCount || 0),
+      assigned_employee_id: current.assignedEmployeeId || '',
+      product: current.product || '',
+      delivery_slot: current.deliverySlot || '',
+      subscription_id: current.subscriptionId || '',
+      subscription_quantity: current.subscriptionQuantity ?? '',
+      delivery_source: current.deliverySource || '',
+      delivery_date: current.date || '',
+      date: current.rawDate || current.date || '',
+      cancellation_reason: current.cancellationReason || ''
+    });
+
+    setEditingDelivery(item.id);
+  };
+
+  const saveDeliveryDetails = async () => {
+    if (!editingDelivery || savingDeliveryEdit || user?.role !== 'admin') return;
+
+    if (!deliveryEditForm.customer_name.trim()) {
+      showToast('Customer name is required.', 'error');
+      return;
+    }
+
+    if (
+      !Number.isInteger(Number(deliveryEditForm.bottle_return_count)) ||
+      Number(deliveryEditForm.bottle_return_count) < 0
+    ) {
+      showToast('Enter a valid bottle return count.', 'error');
+      return;
+    }
+
+    setSavingDeliveryEdit(true);
+
+    try {
+      const original = distributionList.find(
+        item => item.id === editingDelivery
+      );
+
+      if (!original) {
+        throw new Error('Delivery no longer available.');
+      }
+
+      const proposed = {
+        customer_name: deliveryEditForm.customer_name.trim(),
+        address: deliveryEditForm.address,
+        phone: deliveryEditForm.phone,
+        quantity: deliveryEditForm.quantity,
+        bottle_return_count: Number(deliveryEditForm.bottle_return_count),
+        assigned_employee_id: deliveryEditForm.assigned_employee_id || null,
+        product: deliveryEditForm.product || null,
+        delivery_slot: deliveryEditForm.delivery_slot || null,
+        subscription_id: deliveryEditForm.subscription_id || null,
+        subscription_quantity: deliveryEditForm.subscription_id
+          ? (
+              deliveryEditForm.subscription_quantity === ''
+                ? null
+                : Number(deliveryEditForm.subscription_quantity)
+            )
+          : null,
+        delivery_source: deliveryEditForm.delivery_source || null,
+        delivery_date: deliveryEditForm.delivery_date,
+        date: deliveryEditForm.date,
+        cancellation_reason: deliveryEditForm.cancellation_reason || null
+      };
+
+      const previous = {
+        customer_name: original.customerName,
+        address: original.address,
+        phone: original.phone,
+        quantity: original.quantity,
+        bottle_return_count: Number(original.bottleReturnCount || 0),
+        assigned_employee_id: original.assignedEmployeeId || null,
+        product: original.product,
+        delivery_slot: original.deliverySlot,
+        subscription_id: original.subscriptionId || null,
+        subscription_quantity: original.subscriptionQuantity,
+        delivery_source: original.deliverySource,
+        delivery_date: original.date,
+        date: original.rawDate,
+        cancellation_reason: original.cancellationReason
+      };
+
+      const changes = {};
+
+      for (const key of Object.keys(proposed)) {
+        if (previous[key] === undefined) continue;
+
+        if (
+          String(proposed[key] ?? '') !==
+          String(previous[key] ?? '')
+        ) {
+          changes[key] = proposed[key];
+        }
+      }
+
+      if (Object.keys(changes).length === 0) {
+        setEditingDelivery(null);
+        showToast('No delivery changes to save.', 'success');
+        return;
+      }
+
+      const { data, error } = await supabase.rpc(
+        'admin_update_delivery_details',
+        {
+          p_delivery_id: editingDelivery,
+          p_changes: changes
+        }
+      );
+
+      if (error) throw error;
+
+      if (data?.id !== editingDelivery) {
+        throw new Error('Updated delivery response could not be verified.');
+      }
+
+      await fetchDeliveries();
+
+      setDeliveryEditOverrides(prev => {
+        const next = { ...prev };
+        delete next[editingDelivery];
+        return next;
+      });
+
+      setRecurringStatusOverrides(prev => {
+        const next = { ...prev };
+        delete next[editingDelivery];
+        return next;
+      });
+
+      setConfirmedDeliveryOverrides(prev => {
+        const next = { ...prev };
+        delete next[editingDelivery];
+        return next;
+      });
+
+      setEditingDelivery(null);
+      showToast('Delivery details saved successfully.', 'success');
+    } catch (error) {
+      console.error('Delivery edit failed:', error);
+      showToast(error.message || 'Unable to save delivery.', 'error');
+    } finally {
+      setSavingDeliveryEdit(false);
+    }
+  };
+
+
+  const isRecurringProductDelivery = (item) =>
+    ['p2', 'p3', 'p5'].includes(String(item.product)) &&
+    Boolean(item.subscriptionId) &&
+    item.deliverySource === 'subscription';
+
+  const getRosterStatus = (item) =>
+    recurringStatusOverrides[item.id] || item.status;
+
+  const getRosterConfirmation = (item) =>
+    confirmedDeliveryOverrides[item.id]?.confirmedAt || item.confirmedAt;
+
+  const changeRecurringDeliveryStatus = async (item, newStatus) => {
+    if (user?.role !== 'admin' || updatingDeliveryStatusId !== null) return;
+
+    const currentStatus = getRosterStatus(item);
+
+    if (['Delivered', 'Cancelled'].includes(currentStatus)) {
+      showToast('Finalized delivery cannot be changed.', 'error');
+      return;
+    }
+
+    if (newStatus !== 'Cancelled' && !getRosterConfirmation(item)) {
+      showToast('Confirm the delivery before changing its status.', 'error');
+      return;
+    }
+
+    if (newStatus === currentStatus) return;
+
+    let rpcName = 'update_recurring_delivery_status';
+    let args = {
+      p_delivery_id: item.id,
+      p_new_status: newStatus
+    };
+
+    if (newStatus === 'Cancelled') {
+      const reason = window.prompt('Enter the mandatory cancellation reason. Any applicable refund must be processed manually by the administrator:');
+      if (reason === null) return;
+
+      if (!reason.trim()) {
+        showToast('Cancellation reason is required.', 'error');
+        return;
+      }
+
+      rpcName = 'cancel_confirmed_recurring_delivery';
+      args = {
+        p_delivery_id: item.id,
+        p_reason: reason.trim()
+      };
+    }
+
+    setUpdatingDeliveryStatusId(item.id);
+    try {
+      const { data, error } = await supabase.rpc(rpcName, args);
+      if (error) throw error;
+
+      if (data?.id !== item.id || data?.status !== newStatus) {
+        throw new Error('Delivery status response could not be verified.');
+      }
+
+      setRecurringStatusOverrides(prev => ({
+        ...prev,
+        [item.id]: data.status
+      }));
+
+      showToast('Delivery status updated to ' + data.status);
+    } catch (error) {
+      console.error('Recurring delivery status failed:', error);
+      showToast(error.message || 'Unable to update delivery.', 'error');
+    } finally {
+      setUpdatingDeliveryStatusId(null);
+    }
+  };
+
+  const confirmRecurringDelivery = async (deliveryId) => {
+    if (user?.role !== 'admin' || confirmingDeliveryId) return;
+
+    setConfirmingDeliveryId(deliveryId);
+    try {
+      const { data, error } = await supabase.rpc(
+        'confirm_recurring_product_delivery',
+        { p_delivery_id: deliveryId }
+      );
+
+      if (error) throw error;
+      if (!data?.confirmed_at || !data?.delivery_slot || data.id !== deliveryId) {
+        throw new Error('Delivery confirmation could not be verified.');
+      }
+
+      setConfirmedDeliveryOverrides(prev => ({
+        ...prev,
+        [deliveryId]: {
+          confirmedAt: data.confirmed_at,
+          deliverySlot: data.delivery_slot
+        }
+      }));
+      showToast('Delivery confirmed: ' + data.delivery_slot);
+    } catch (error) {
+      console.error('Recurring delivery confirmation failed:', error);
+      showToast(error.message || 'Unable to confirm delivery.', 'error');
+    } finally {
+      setConfirmingDeliveryId(null);
+    }
+  };
+
+  const [deliverySettings, setDeliverySettings] = useState({
+    start_time: '05:30',
+    end_time: '08:00'
+  });
+  const [deliverySettingsLoading, setDeliverySettingsLoading] = useState(false);
+  const [deliverySettingsSaving, setDeliverySettingsSaving] = useState(false);
+  const [deliverySettingsLoaded, setDeliverySettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'delivery-settings' || authLoading || user?.role !== 'admin') {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      setDeliverySettingsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('recurring_delivery_settings')
+          .select('start_time,end_time')
+          .eq('id', 1)
+          .single();
+
+        if (error) throw error;
+
+        if (!cancelled) {
+          setDeliverySettings({
+            start_time: data.start_time.slice(0, 5),
+            end_time: data.end_time.slice(0, 5)
+          });
+          setDeliverySettingsLoaded(true);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setDeliverySettingsLoaded(false);
+          showToast(error.message || 'Unable to load delivery settings.', 'error');
+        }
+      } finally {
+        if (!cancelled) setDeliverySettingsLoading(false);
+      }
+    };
+
+    loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, authLoading, user?.role]);
+
+  const saveDeliverySettings = async () => {
+    if (user?.role !== 'admin' || deliverySettingsSaving || !deliverySettingsLoaded) return;
+
+    const { start_time, end_time } = deliverySettings;
+
+    if (
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(start_time) ||
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(end_time) ||
+      start_time >= end_time
+    ) {
+      showToast('Choose a valid delivery window. End time must be later than start time.', 'error');
+      return;
+    }
+
+    setDeliverySettingsSaving(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('recurring_delivery_settings')
+        .update({
+          start_time,
+          end_time,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1)
+        .select('start_time,end_time')
+        .single();
+
+      if (error) throw error;
+
+      setDeliverySettings({
+        start_time: data.start_time.slice(0, 5),
+        end_time: data.end_time.slice(0, 5)
+      });
+
+      showToast('Recurring delivery window saved successfully.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Unable to save delivery settings.', 'error');
+    } finally {
+      setDeliverySettingsSaving(false);
+    }
+  };
+
+
+  const handleApproveSubscription = async (subscription) => {
+    if (!subscription?.id || approvingSubscriptionId) return;
+
+    const confirmed = window.confirm(
+      `Approve subscription for ${subscription.customerName || 'this customer'}?`
+    );
+
+    if (!confirmed) return;
+
+    setApprovingSubscriptionId(subscription.id);
+
+    try {
+      const isRecurringProduct = ['p2', 'p3', 'p5'].includes(
+        String(subscription.productId)
+      );
+
+      const { error } = await supabase.rpc(
+        isRecurringProduct
+          ? 'approve_recurring_product_subscription'
+          : 'approve_customer_subscription',
+        { p_subscription_id: subscription.id }
+      );
+
+      if (error) throw error;
+
+      showToast('Subscription approved successfully.', 'success');
+
+      // Refresh the dashboard data after approval.
+      window.location.reload();
+    } catch (error) {
+      console.error('Subscription approval failed:', error);
+
+      showToast(
+        error.message || 'Unable to approve subscription.',
+        'error'
+      );
+    } finally {
+      setApprovingSubscriptionId(null);
+    }
+  };
+
   // Inventory Dashboard state
   const [inventorySummary, setInventorySummary] = useState([]);
   const [inventoryMovements, setInventoryMovements] = useState([]);
@@ -467,11 +883,12 @@ export const AdminDashboard = () => {
     }
   };
 
-  const filteredDist = distributionList.filter(d =>
-    d.customerName.toLowerCase().includes(searchDist.toLowerCase()) ||
-    d.address.toLowerCase().includes(searchDist.toLowerCase()) ||
-    d.product.toLowerCase().includes(searchDist.toLowerCase())
-  );
+  const filteredDist = distributionList
+    .filter(d =>
+      String(d.customerName || '').toLowerCase().includes(searchDist.toLowerCase()) ||
+      String(d.address || '').toLowerCase().includes(searchDist.toLowerCase()) ||
+      String(d.product || '').toLowerCase().includes(searchDist.toLowerCase())
+    );
 
   const filteredUsers = dbUsers.filter(u =>
     u.name.toLowerCase().includes(searchUsers.toLowerCase()) ||
@@ -827,6 +1244,18 @@ export const AdminDashboard = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('delivery-settings')}
+            className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${
+              activeTab === 'delivery-settings'
+                ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
+                : 'bg-white text-stone-700 hover:bg-stone-100 border-stone-200/70'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5 text-[#DFB33F] shrink-0" />
+            <span className="truncate">Delivery Settings</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('database')}
             className={`py-3 px-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 text-center shadow-xs border ${activeTab === 'database'
               ? 'bg-[#042B1B] text-white border-[#042B1B] shadow-md'
@@ -906,7 +1335,47 @@ export const AdminDashboard = () => {
                     </td>
                     <td className="py-4 px-4 text-stone-600 max-w-xs">{item.address}</td>
                     <td className="py-4 px-4 font-bold text-stone-800">{item.product} ({item.quantity})</td>
-                    <td className="py-4 px-4 text-stone-500">{item.deliverySlot}</td>
+                    <td className="py-4 px-4 text-stone-500">
+                      {(() => {
+                        const isRecurringProduct =
+                          ['p2', 'p3', 'p5'].includes(String(item.product)) &&
+                          item.subscriptionId &&
+                          item.deliverySource === 'subscription';
+                        const override = confirmedDeliveryOverrides[item.id];
+                        const confirmedAt = override?.confirmedAt || item.confirmedAt;
+                        const slot = override?.deliverySlot || item.deliverySlot;
+
+                        if (!isRecurringProduct) return slot;
+
+                        return (
+                          <div className="space-y-2">
+                            <div>
+                              {confirmedAt ? slot : 'Window set at confirmation'}
+                            </div>
+                            {confirmedAt ? (
+                              <span className="text-xs font-semibold text-emerald-700">
+                                Confirmed
+                              </span>
+                            ) : getRosterStatus(item) === 'Pending' ? (
+                              <button
+                                type="button"
+                                onClick={() => confirmRecurringDelivery(item.id)}
+                                disabled={confirmingDeliveryId !== null}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-800 text-white text-xs font-semibold disabled:opacity-50"
+                              >
+                                {confirmingDeliveryId === item.id
+                                  ? 'Confirming...'
+                                  : 'Confirm Delivery'}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-amber-700">
+                                Not confirmed
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="py-4 px-4 font-bold text-amber-800">{item.bottleReturnCount} Glass Bottles</td>
                     <td className="py-4 px-4">
                       <select
@@ -927,7 +1396,11 @@ export const AdminDashboard = () => {
                             setUpdatingDeliveryAgentId(null);
                           }
                         }}
-                        disabled={updatingDeliveryAgentId !== null}
+                        disabled={
+                          updatingDeliveryAgentId !== null ||
+                          (isRecurringProductDelivery(item) &&
+                            ['Delivered', 'Cancelled'].includes(getRosterStatus(item)))
+                        }
                         aria-label={`Assigned delivery agent for ${item.customerName}`}
                         className="px-2 py-1 bg-stone-100 border border-stone-200 rounded-lg text-[11px] font-semibold text-[#042B1B] focus:outline-none"
                       >
@@ -954,25 +1427,43 @@ export const AdminDashboard = () => {
                       </select>
                     </td>
                     <td className="py-4 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${item.status === 'Delivered'
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getRosterStatus(item) === 'Delivered'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : item.status === 'In Transit'
+                        : getRosterStatus(item) === 'In Transit'
                           ? 'bg-amber-100 text-amber-900'
                           : 'bg-stone-100 text-stone-600'
                         }`}>
-                        {item.status}
+                        {getRosterStatus(item)}
                       </span>
                     </td>
                     <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        {!(
+                          isRecurringProductDelivery(item) &&
+                          ['Delivered', 'Cancelled'].includes(getRosterStatus(item))
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() => openDeliveryEditor(item)}
+                            className="px-2 py-1 rounded-lg bg-emerald-800 text-white text-[11px] font-semibold"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
                       <select
-                        value={item.status}
+                        value={getRosterStatus(item)}
                         onChange={async (e) => {
                           if (updatingDeliveryStatusId !== null) return;
 
                           const selectedStatus = e.currentTarget.value;
 
-                          setUpdatingDeliveryStatusId(item.id);
+                          if (isRecurringProductDelivery(item)) {
+                            await changeRecurringDeliveryStatus(item, selectedStatus);
+                            return;
+                          }
 
+                          setUpdatingDeliveryStatusId(item.id);
                           try {
                             await updateDistributionStatus(item.id, selectedStatus);
                           } catch (error) {
@@ -982,19 +1473,157 @@ export const AdminDashboard = () => {
                             setUpdatingDeliveryStatusId(null);
                           }
                         }}
-                        disabled={updatingDeliveryStatusId !== null}
+                        disabled={
+                          updatingDeliveryStatusId !== null ||
+                          (isRecurringProductDelivery(item) &&
+                            ['Delivered', 'Cancelled'].includes(getRosterStatus(item)))
+                        }
                         aria-label={`Delivery status for ${item.customerName}`}
-                        className="px-2 py-1 bg-stone-100 border border-stone-200 rounded-lg text-[11px] font-semibold text-[#042B1B] focus:outline-none"
+                        className="px-2 py-1 bg-stone-100 border border-stone-200 rounded-lg text-[11px] font-semibold text-[#042B1B] focus:outline-none disabled:opacity-50"
                       >
                         <option value="Pending">Pending</option>
-                        <option value="In Transit">In Transit</option>
-                        <option value="Delivered">Delivered</option>
+                        <option
+                          value="In Transit"
+                          disabled={isRecurringProductDelivery(item) && !getRosterConfirmation(item)}
+                        >In Transit</option>
+                        <option
+                          value="Delivered"
+                          disabled={isRecurringProductDelivery(item) && !getRosterConfirmation(item)}
+                        >Delivered</option>
+                        {isRecurringProductDelivery(item) && (
+                          <option value="Cancelled">Cancelled</option>
+                        )}
                       </select>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+
+      {/* Delivery Details Editor */}
+      {editingDelivery && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-[#042B1B]">
+                Edit Delivery
+              </h3>
+              <button
+                type="button"
+                disabled={savingDeliveryEdit}
+                onClick={() => setEditingDelivery(null)}
+                aria-label="Close delivery editor"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {[
+              ['customer_name', 'Customer Name'],
+              ['address', 'Delivery Address'],
+              ['phone', 'Phone Number'],
+              ['quantity', 'Quantity']
+            ].map(([key, label]) => (
+              <label key={key} className="block space-y-1">
+                <span className="text-xs font-semibold">{label}</span>
+                <input
+                  type="text"
+                  value={deliveryEditForm[key] ?? ''}
+                  onChange={e => setDeliveryEditForm(prev => ({
+                    ...prev,
+                    [key]: e.target.value
+                  }))}
+                  className="w-full border border-stone-300 rounded-lg p-2 text-sm"
+                />
+              </label>
+            ))}
+
+            {[
+              ['product', 'Product ID'],
+              ['delivery_slot', 'Delivery Slot'],
+              ['subscription_id', 'Subscription ID'],
+              ['subscription_quantity', 'Subscription Quantity'],
+              ['delivery_source', 'Delivery Source'],
+              ['delivery_date', 'Delivery Date'],
+              ['date', 'Record Date'],
+              ['cancellation_reason', 'Cancellation Reason']
+            ].map(([key, label]) => (
+              <label key={key} className="block space-y-1">
+                <span className="text-xs font-semibold">{label}</span>
+                <input
+                  type={key === 'delivery_date' || key === 'date' ? 'date' : 'text'}
+                  value={deliveryEditForm[key] ?? ''}
+                  onChange={e => setDeliveryEditForm(prev => ({
+                    ...prev,
+                    [key]: e.target.value
+                  }))}
+                  className="w-full border border-stone-300 rounded-lg p-2 text-sm"
+                />
+              </label>
+            ))}
+
+            <label className="block space-y-1">
+              <span className="text-xs font-semibold">Bottle Returns</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={deliveryEditForm.bottle_return_count ?? 0}
+                onChange={e => setDeliveryEditForm(prev => ({
+                  ...prev,
+                  bottle_return_count: e.target.value
+                }))}
+                className="w-full border border-stone-300 rounded-lg p-2 text-sm"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-xs font-semibold">Assigned Delivery Agent</span>
+              <select
+                value={deliveryEditForm.assigned_employee_id ?? ''}
+                onChange={e => setDeliveryEditForm(prev => ({
+                  ...prev,
+                  assigned_employee_id: e.target.value
+                }))}
+                className="w-full border border-stone-300 rounded-lg p-2 text-sm"
+              >
+                <option value="">Not Assigned</option>
+                {(employees || [])
+                  .filter(employee =>
+                    employee.category === 'Delivery Agent' &&
+                    (employee.status === 'Active' ||
+                      employee.id === deliveryEditForm.assigned_employee_id)
+                  )
+                  .map(employee => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <div className="flex justify-end gap-3 pt-3">
+              <button
+                type="button"
+                disabled={savingDeliveryEdit}
+                onClick={() => setEditingDelivery(null)}
+                className="px-4 py-2 rounded-lg border border-stone-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingDeliveryEdit}
+                onClick={saveDeliveryDetails}
+                className="px-4 py-2 rounded-lg bg-emerald-800 text-white disabled:opacity-50"
+              >
+                {savingDeliveryEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1031,13 +1660,22 @@ export const AdminDashboard = () => {
                     <th className="px-4 py-3 text-left font-bold">Start Date</th>
                     <th className="px-4 py-3 text-left font-bold">₹/Day</th>
                     <th className="px-4 py-3 text-left font-bold">Status</th>
+                    <th className="px-4 py-3 text-left font-bold">Approval</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {subscriptions
                     .filter(subscription => {
                       const frequency = String(subscription.frequency || '').toLowerCase();
-                      return frequency === 'daily' || frequency === 'daily morning';
+
+                      return [
+                        'daily',
+                        'alternate',
+                        'daily morning',
+                        'every_7_days',
+                        'every_15_days',
+                        'every_30_days'
+                      ].includes(frequency);
                     })
                     .map(subscription => (
                       <tr key={subscription.id} className="hover:bg-stone-50">
@@ -1059,6 +1697,30 @@ export const AdminDashboard = () => {
                           <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold ${subscription.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                             {subscription.status || 'Active'}
                           </span>
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="flex flex-col items-start gap-2">
+                            <span className={`text-xs font-bold ${subscription.approvalStatus === 'Approved'
+                                ? 'text-emerald-700'
+                                : 'text-amber-700'
+                              }`}>
+                              {subscription.approvalStatus || 'Pending'}
+                            </span>
+
+                            {subscription.approvalStatus === 'Pending' &&
+                              subscription.status === 'Paused' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveSubscription(subscription)}
+                                  disabled={approvingSubscriptionId !== null}
+                                  className="px-3 py-2 rounded-xl bg-[#042B1B] text-white text-xs font-bold hover:bg-emerald-800 disabled:opacity-50"
+                                >
+                                  {approvingSubscriptionId === subscription.id
+                                    ? 'Approving...'
+                                    : 'Approve'}
+                                </button>
+                              )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -2217,6 +2879,74 @@ export const AdminDashboard = () => {
         </div>
       )}
 
+
+      {activeTab === 'delivery-settings' && (
+        <div className="bg-white rounded-3xl border border-[#042B1B]/10 shadow-md p-6 space-y-6">
+          <div>
+            <h3 className="font-serif-display text-xl font-bold text-[#042B1B]">
+              Recurring Delivery Settings
+            </h3>
+            <p className="text-sm text-stone-500 mt-2">
+              Configure the delivery window for future unconfirmed recurring deliveries.
+              Timezone: Asia/Kolkata (IST).
+            </p>
+          </div>
+
+          {user?.role !== 'admin' ? (
+            <p className="text-red-700">Administrator access required.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+                <label className="flex flex-col gap-2 text-sm font-semibold text-[#042B1B]">
+                  Start time
+                  <input
+                    type="time"
+                    value={deliverySettings.start_time}
+                    disabled={deliverySettingsLoading || !deliverySettingsLoaded || deliverySettingsSaving}
+                    onChange={(event) =>
+                      setDeliverySettings(current => ({
+                        ...current,
+                        start_time: event.target.value
+                      }))
+                    }
+                    className="rounded-xl border border-stone-300 p-3"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-semibold text-[#042B1B]">
+                  End time
+                  <input
+                    type="time"
+                    value={deliverySettings.end_time}
+                    disabled={deliverySettingsLoading || !deliverySettingsLoaded || deliverySettingsSaving}
+                    onChange={(event) =>
+                      setDeliverySettings(current => ({
+                        ...current,
+                        end_time: event.target.value
+                      }))
+                    }
+                    className="rounded-xl border border-stone-300 p-3"
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                disabled={deliverySettingsLoading || !deliverySettingsLoaded || deliverySettingsSaving}
+                onClick={saveDeliverySettings}
+                className="px-6 py-3 rounded-xl bg-[#042B1B] text-white font-bold text-sm disabled:opacity-50"
+              >
+                {deliverySettingsSaving ? 'Saving...' : 'Save Delivery Window'}
+              </button>
+
+              <p className="text-xs text-stone-500">
+                Existing delivery records are not modified by this setting.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {/* TAB 5: DATABASE TOOLS, BACKUP & AUDIT LOGS */}
       {activeTab === 'database' && (
         <div className="space-y-8">
@@ -3082,7 +3812,23 @@ export const AdminDashboard = () => {
                       <td className="py-4 px-4">
                         <select
                           value={ord.status || 'Confirmed'}
-                          onChange={(e) => updateOneTimeOrderStatus(ord.id, e.target.value)}
+                          disabled={
+                            user?.role !== 'admin' ||
+                            ['Delivered', 'Cancelled'].includes(ord.status)
+                          }
+                          onChange={async (e) => {
+                            const nextStatus = e.target.value;
+
+                            if (user?.role !== 'admin' ||
+                                ['Delivered', 'Cancelled'].includes(ord.status)) return;
+
+                            if (nextStatus === 'Cancelled' &&
+                                !window.confirm(
+                                  'Cancel this order? Any applicable refund must be processed manually by the administrator.'
+                                )) return;
+
+                            await updateOneTimeOrderStatus(ord.id, nextStatus);
+                          }}
                           className={`px-2.5 py-1 rounded-xl text-xs font-bold focus:outline-none border cursor-pointer ${ord.status === 'Delivered'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                             : ord.status === 'In Transit'

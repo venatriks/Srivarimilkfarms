@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../lib/apiConfig';
 import React, {
   createContext,
   useContext,
@@ -132,6 +133,19 @@ const mapSubscription = ({
     status:
       subscription.status ||
       'Active',
+
+    // Billing plan selected by the customer
+    billingType:
+      subscription.billing_type || null,
+
+    planDays:
+      subscription.plan_days == null
+        ? null
+        : Number(subscription.plan_days),
+
+    // Admin approval state
+    approvalStatus:
+      subscription.approval_status || null,
 
     startDate:
       subscription.start_date,
@@ -972,6 +986,12 @@ export const AppProvider = ({ children }) => {
         (data || []).map(
           delivery => ({
             id: delivery.id,
+            subscriptionId: delivery.subscription_id,
+            deliverySource: delivery.delivery_source,
+            confirmedAt: delivery.confirmed_at,
+            subscriptionQuantity: delivery.subscription_quantity,
+            rawDate: delivery.date,
+            cancellationReason: delivery.cancellation_reason,
             assignedEmployeeId:
               delivery.assigned_employee_id ?? null,
             customerId:
@@ -2052,7 +2072,7 @@ export const AppProvider = ({ children }) => {
                   role:
                     'customer',
                   wallet_balance:
-                    1000,
+                    0,
                   status:
                     'Active'
                 },
@@ -2422,12 +2442,55 @@ export const AppProvider = ({ children }) => {
          * Store "daily" in the database because
          * subscriptions.frequency has default "daily".
          */
-        const frequency =
-          item?.frequency ===
-            'alternate'
+        const fixedIntervalProduct =
+          ['p2', 'p3', 'p5'].includes(String(productId));
+
+        const frequency = fixedIntervalProduct
+          ? item?.frequency
+          : item?.frequency === 'alternate'
             ? 'alternate'
             : 'daily';
 
+        if (
+          fixedIntervalProduct &&
+          ![
+            'every_7_days',
+            'every_15_days',
+            'every_30_days'
+          ].includes(frequency)
+        ) {
+          throw new Error(
+            'Please select a valid recurring delivery interval.'
+          );
+        }
+        /*
+         * Subscription billing plan is mandatory.
+         * Never silently default to prepaid or postpaid.
+         */
+        const billingType = item?.billingType;
+        const planDays = Number(item?.planDays);
+
+        if (!['prepaid', 'postpaid'].includes(billingType)) {
+          throw new Error(
+            'Please select Prepaid or Postpaid.'
+          );
+        }
+
+        if (fixedIntervalProduct) {
+          if (billingType !== 'prepaid') {
+            throw new Error(
+              'Recurring product subscriptions must be prepaid.'
+            );
+          }
+        } else if (
+          ![7, 10, 15, 30].includes(planDays) ||
+          item?.planDays == null ||
+          item?.planDays === ''
+        ) {
+          throw new Error(
+            'Please select a valid subscription duration.'
+          );
+        }
 
         const {
           data: createdSubscription,
@@ -2440,7 +2503,9 @@ export const AppProvider = ({ children }) => {
             p_frequency: frequency,
             p_delivery_slot:
               deliverySlot || DEFAULT_DELIVERY_SLOT,
-            p_start_date: item?.startDate || null
+            p_start_date: item?.startDate || null,
+            p_billing_type: billingType,
+            p_plan_days: fixedIntervalProduct ? null : planDays
           }
         );
 
@@ -2468,7 +2533,7 @@ export const AppProvider = ({ children }) => {
         );
 
         showToast(
-          'Milk subscription started successfully!',
+          'Subscription request submitted.Awaiting payment(if prepaid) and admin approval.',
           'success'
         );
 
@@ -2857,7 +2922,7 @@ export const AppProvider = ({ children }) => {
 
       let response;
       try {
-        response = await fetch('https://d4qlj85684.execute-api.ap-south-1.amazonaws.com/checkout', {
+        response = await fetch(`${API_BASE_URL}/checkout`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -2971,7 +3036,7 @@ export const AppProvider = ({ children }) => {
         await fetchSubscriptions();
 
         showToast(
-          'Milk subscription started successfully!',
+          'Subscription request submitted. Awaiting payment (if prepaid) and admin approval.',
           'success'
         );
 
@@ -3265,7 +3330,7 @@ export const AppProvider = ({ children }) => {
               wallet_balance:
                 Number(
                   userData.walletBalance ||
-                  1000
+                  0
                 ),
               status:
                 'Active'
@@ -4419,6 +4484,7 @@ export const AppProvider = ({ children }) => {
          * Deliveries
          */
         distributionList,
+        fetchDeliveries,
         updateDistributionStatus,
         updateDeliveryAgent,
 

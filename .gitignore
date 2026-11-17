@@ -53,3 +53,4 @@ aws-backend/src/testSupabaseConnection.js
 
 # Local subscription Lambda deployment package
 aws-backend/subscription-lambda-package/
+.env.local

@@ -1,5 +1,5 @@
 const allowedFields = new Set(['p_customer_name','p_customer_email','p_customer_phone','p_address','p_items','p_delivery_slot','p_instructions','p_payment_method','p_idempotency_key']);
-const paymentMethods = new Set(['UPI Instant Pay','Cash on Delivery']);
+const paymentMethods = new Set(['UPI Instant Pay','Cash on Delivery','Razorpay']);
 const deliverySlots = new Set(['5:00 AM - 6:00 AM','5:30 AM - 6:30 AM','6:30 AM - 7:30 AM']);
 const validText = (value,maxLength) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maxLength;
 function validateCheckout(p) {

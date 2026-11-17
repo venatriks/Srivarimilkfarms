@@ -1,6 +1,10 @@
 
 const crypto = require('node:crypto');
+const { getPaymentConfig } = require('./paymentConfig');
 const { createClient } = require('@supabase/supabase-js');
+const {
+  reconcileOneTimePayment
+} = require('./reconcileOneTimePayment');
 
 const respond = (statusCode, body) => ({
   statusCode,
@@ -24,15 +28,19 @@ function safeEqualSignature(signature, rawBody, secret) {
 }
 
 async function handleRazorpayWebhook(event) {
-  if (process.env.ENABLE_RAZORPAY_TEST_ROUTES !== 'true') {
+  const paymentConfig = getPaymentConfig();
+
+  if (!paymentConfig.enabled) {
     return respond(503, { error: 'Payment routes disabled' });
   }
 
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const {
+    webhookSecret: secret,
+    keyId,
+    keySecret
+  } = paymentConfig;
   const url = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
   if (!secret || !url || !serviceKey || !keyId || !keySecret) {
     return respond(503, { error: 'Payment service unavailable' });
@@ -114,6 +122,16 @@ async function handleRazorpayWebhook(event) {
 
     const verified = await response.json();
 
+    if (verified.amount_refunded !== 0) {
+      console.error('Payment refund review required:', {
+        paymentId: payment.id
+      });
+
+      return respond(503, {
+        error: 'Payment requires refund reconciliation'
+      });
+    }
+
     if (verified.status !== 'captured' ||
       verified.id !== payment.id ||
       verified.order_id !== payment.order_id ||
@@ -145,9 +163,123 @@ async function handleRazorpayWebhook(event) {
       return respond(503, { error: 'Payment reconciliation required' });
     }
 
+    // Independently reconcile one-time Razorpay payments.
+    // Never infer stock-release eligibility from this result.
+    if (attempt.target_type === 'one_time_order') {
+      const reconciliation = await reconcileOneTimePayment({
+        providerOrderId: verified.order_id,
+        expectedAmountPaise: verified.amount
+      });
+
+      if (
+        reconciliation.status !== 'captured' ||
+        reconciliation.paymentId !== verified.id
+      ) {
+        console.error(
+          'One-time payment reconciliation requires review:',
+          reconciliation.status
+        );
+
+        return respond(503, {
+          error: 'Payment reconciliation required'
+        });
+      }
+    }
+
+    // Signed webhook event creation time is retained for audit.
+    // It is NOT treated as the actual payment capture timestamp.
+    const providerEventAt =
+      Number.isSafeInteger(payload.created_at) &&
+      payload.created_at > 0
+        ? new Date(payload.created_at * 1000).toISOString()
+        : null;
+
+    async function recordRecurringEventEvidence() {
+      if (attempt.target_type !== 'subscription_invoice') return;
+
+      const { error } = await backend.rpc(
+        'record_recurring_payment_event',
+        {
+          p_attempt_id: attempt.attempt_id,
+          p_payment_id: verified.id,
+          p_event_id: eventId,
+          p_provider_event_at: providerEventAt
+        }
+      );
+
+      if (error) throw error;
+    }
+
+
+    async function recordVerifiedRecurringCapture() {
+      if (attempt.target_type !== 'subscription_invoice') return;
+
+      if (
+        verified.status !== 'captured' ||
+        verified.id !== payment.id ||
+        verified.order_id !== payment.order_id ||
+        verified.currency !== attempt.currency ||
+        Number(verified.amount) !== Number(attempt.amount_paise)
+      ) {
+        throw new Error('Recurring payment verification mismatch');
+      }
+
+      const { data: invoice, error: invoiceError } = await backend
+        .from('subscription_invoices')
+        .select('invoice_kind')
+        .eq('id', attempt.target_id)
+        .maybeSingle();
+
+      if (invoiceError) throw invoiceError;
+      if (!invoice || invoice.invoice_kind !== 'delivery') return;
+
+      const { data: decision, error } = await backend.rpc(
+        'record_verified_recurring_capture',
+        {
+          p_attempt_id: attempt.attempt_id,
+          p_payment_id: verified.id
+        }
+      );
+
+      if (error) throw error;
+
+      console.log('Recurring capture verification:', {
+        attemptId: attempt.attempt_id,
+        decision
+      });
+    }
+
     if (attempt.status === 'captured') {
       if (attempt.provider_payment_id !== verified.id) {
         return respond(503, { error: 'Conflicting payment' });
+      }
+
+      if (attempt.target_type === 'one_time_order') {
+        const { data: outcome, error: outcomeError } =
+          await backend.rpc('settle_one_time_razorpay_payment', {
+            p_attempt_id: attempt.attempt_id,
+            p_payment_id: verified.id
+          });
+
+        if (outcomeError) {
+          console.error('One-time payment recovery failed:',
+            outcomeError.message);
+          return respond(503, {
+            error: 'Payment reconciliation required'
+          });
+        }
+
+        if (String(outcome).startsWith('REFUND_REQUIRED:')) {
+          return respond(200, {
+            received: true,
+            refund_required: true
+          });
+        }
+
+        return respond(200, {
+          received: true,
+          duplicate: true
+        });
       }
 
       if (attempt.target_type === 'subscription_invoice') {
@@ -166,6 +298,8 @@ async function handleRazorpayWebhook(event) {
         }
       }
 
+      await recordRecurringEventEvidence();
+      await recordVerifiedRecurringCapture();
       return respond(200, { received: true, duplicate: true });
     }
 
@@ -190,7 +324,7 @@ async function handleRazorpayWebhook(event) {
       return respond(503, { error: 'Payment reconciliation required' });
     }
 
-    const { error: settlementError } =
+    const { data: settlementResult, error: settlementError } =
       await backend.rpc(rpcName, rpcArguments);
 
     if (settlementError) {
@@ -201,6 +335,24 @@ async function handleRazorpayWebhook(event) {
       );
 
       return respond(503, { error: 'Payment settlement pending' });
+    }
+
+    await recordRecurringEventEvidence();
+    await recordVerifiedRecurringCapture();
+
+    if (
+      attempt.target_type === 'one_time_order' &&
+      String(settlementResult).startsWith('REFUND_REQUIRED:')
+    ) {
+      console.log('Manual refund review recorded:', {
+        attemptId: attempt.attempt_id,
+        eventId
+      });
+
+      return respond(200, {
+        received: true,
+        refund_required: true
+      });
     }
 
     console.log('Razorpay payment settled:', {

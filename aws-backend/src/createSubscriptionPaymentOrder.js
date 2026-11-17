@@ -2,6 +2,7 @@
 'use strict';
 
 const { createClient } = require('@supabase/supabase-js');
+const { getPaymentConfig } = require('./paymentConfig');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -12,17 +13,19 @@ const respond = (statusCode, body, headers) => ({
 });
 
 async function handleCreateSubscriptionPaymentOrder(event, headers) {
-    if (process.env.ENABLE_RAZORPAY_TEST_ROUTES !== 'true') {
+    const paymentConfig = getPaymentConfig();
+
+    if (!paymentConfig.enabled) {
         return respond(503, { error: 'Payment routes disabled' }, headers);
     }
 
     const {
         SUPABASE_URL: url,
         SUPABASE_ANON_KEY: anonKey,
-        SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-        RAZORPAY_KEY_ID: keyId,
-        RAZORPAY_KEY_SECRET: keySecret
+        SUPABASE_SERVICE_ROLE_KEY: serviceKey
     } = process.env;
+
+    const { keyId, keySecret } = paymentConfig;
 
     if (![url, anonKey, serviceKey, keyId, keySecret].every(Boolean)) {
         return respond(503, { error: 'Payment service unavailable' }, headers);
@@ -48,7 +51,14 @@ async function handleCreateSubscriptionPaymentOrder(event, headers) {
         typeof payload !== 'object' ||
         Array.isArray(payload) ||
         !UUID.test(payload.subscription_id || '') ||
-        !UUID.test(payload.idempotency_key || '')
+        !UUID.test(payload.idempotency_key || '') ||
+        (
+            payload.delivery_date != null &&
+            (
+                typeof payload.delivery_date !== 'string' ||
+                !/^\d{4}-\d{2}-\d{2}$/.test(payload.delivery_date)
+            )
+        )
     ) {
         return respond(400, {
             error: 'Valid subscription_id and idempotency_key are required'
@@ -91,7 +101,7 @@ async function handleCreateSubscriptionPaymentOrder(event, headers) {
 
     const { data: subscription, error: subscriptionError } = await backend
         .from('subscriptions')
-        .select('id,user_id,billing_type,status,approval_status')
+        .select('id,user_id,product_id,billing_type,status,approval_status,frequency,plan_days')
         .eq('id', payload.subscription_id)
         .eq('user_id', customerId)
         .maybeSingle();
@@ -102,21 +112,97 @@ async function handleCreateSubscriptionPaymentOrder(event, headers) {
         return respond(404, { error: 'Subscription not found' }, headers);
     }
 
-    if (
-        subscription.billing_type !== 'prepaid' ||
-        subscription.status !== 'Paused' ||
-        subscription.approval_status !== 'Pending'
-    ) {
+    const { data: policy, error: policyError } = await backend
+        .from('product_subscription_policies')
+        .select('schedule_kind')
+        .eq('product_id', subscription.product_id)
+        .maybeSingle();
+
+    if (policyError) throw policyError;
+
+    if (!policy) {
         return respond(409, {
-            error: 'Subscription is not awaiting prepaid payment'
+            error: 'Subscription policy not configured'
         }, headers);
     }
 
-    // The database calculates the amount. Never trust a browser amount.
-    const { data: invoiceData, error: invoiceError } = await backend.rpc(
-        'create_prepaid_subscription_invoice',
-        { p_subscription_id: subscription.id }
-    );
+    const isRecurring = policy.schedule_kind === 'fixed_interval';
+
+    if (subscription.billing_type !== 'prepaid') {
+        return respond(409, {
+            error: 'Subscription is not prepaid'
+        }, headers);
+    }
+
+    let invoiceRpc;
+    let invoiceArgs;
+
+    if (isRecurring) {
+        if (!payload.delivery_date) {
+            return respond(400, {
+                error: 'Delivery date is required'
+            }, headers);
+        }
+
+        if (
+            !['Active', 'Paused'].includes(subscription.status) ||
+            !['Pending', 'Approved'].includes(
+                subscription.approval_status
+            )
+        ) {
+            return respond(409, {
+                error: 'Recurring subscription is not eligible'
+            }, headers);
+        }
+
+        const { error: scheduleError } = await backend.rpc(
+            'assert_recurring_delivery_schedule',
+            {
+                p_subscription_id: subscription.id,
+                p_delivery_date: payload.delivery_date
+            }
+        );
+
+        if (scheduleError) {
+            return respond(409, {
+                error: 'Invalid delivery date or payment deadline passed'
+            }, headers);
+        }
+
+        invoiceRpc = 'create_prepaid_delivery_invoice';
+        invoiceArgs = {
+            p_subscription_id: subscription.id,
+            p_delivery_date: payload.delivery_date
+        };
+    } else if (policy.schedule_kind === 'daily_alternate') {
+        if (payload.delivery_date != null) {
+            return respond(400, {
+                error: 'Delivery date is not valid for plan payments'
+            }, headers);
+        }
+
+        if (
+            subscription.status !== 'Paused' ||
+            subscription.approval_status !== 'Pending'
+        ) {
+            return respond(409, {
+                error: 'Subscription is not awaiting prepaid payment'
+            }, headers);
+        }
+
+        invoiceRpc = 'create_prepaid_subscription_invoice';
+        invoiceArgs = {
+            p_subscription_id: subscription.id
+        };
+    } else {
+        return respond(409, {
+            error: 'Unsupported subscription policy'
+        }, headers);
+    }
+
+    // The database calculates the amount.
+    const { data: invoiceData, error: invoiceError } =
+        await backend.rpc(invoiceRpc, invoiceArgs);
 
     if (invoiceError) {
         console.error('Invoice creation failed:', invoiceError.code);
@@ -137,6 +223,24 @@ async function handleCreateSubscriptionPaymentOrder(event, headers) {
         Number(invoice.amount_due_paise) < 100
     ) {
         return respond(409, { error: 'Invoice is not payable' }, headers);
+    }
+
+    // Check the invoice payment window before claiming or
+    // reusing any Razorpay order.
+    const { error: paymentWindowError } = await backend.rpc(
+        'assert_invoice_payment_window',
+        { p_invoice_id: invoice.id }
+    );
+
+    if (paymentWindowError) {
+        console.error(
+            'Invoice payment window rejected:',
+            paymentWindowError.code
+        );
+
+        return respond(409, {
+            error: 'Invoice payment deadline has passed or invoice is not payable'
+        }, headers);
     }
 
     const { data: claimData, error: claimError } = await backend.rpc(
