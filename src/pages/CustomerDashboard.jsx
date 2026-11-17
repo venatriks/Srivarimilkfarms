@@ -1,4 +1,6 @@
+import { HistoricalInvoices } from '../components/HistoricalInvoices';
 import React, { useMemo, useState } from 'react';
+import { InvoiceHistory, PaymentReceiptHistory } from '../components/InvoicePanel';
 import { useNavigate } from 'react-router-dom';
 import {
   Milk,
@@ -312,6 +314,15 @@ export const CustomerDashboard = () => {
   const handleQuantityChange = async (subscription, newQuantity) => {
     if (!user?.id || savingSubscriptionId) return;
 
+    if (String(subscription.billingType || subscription.billing_type || '')
+        .toLowerCase() !== 'postpaid') {
+      showToast(
+        'Prepaid subscription quantities cannot be changed during the current cycle.',
+        'error'
+      );
+      return;
+    }
+
     if (!['Active', 'Paused'].includes(subscription.status)) {
       showToast('This subscription quantity cannot be changed.', 'error');
       return;
@@ -405,7 +416,12 @@ export const CustomerDashboard = () => {
               const isPaused = subscription.status === 'Paused';
               const isCancelled = subscription.status === 'Cancelled';
               const canModifySubscription = isActive || isPaused;
-              const canChangeQuantity = false; // Until secure quantity billing is implemented
+              const canChangeQuantity =
+                canModifySubscription &&
+                String(
+                  subscription.billingType ||
+                  subscription.billing_type || ''
+                ).toLowerCase() === 'postpaid';
               const bottlesExchanged = Number(
                 subscription.bottlesExchanged || 0
               );
@@ -734,7 +750,7 @@ export const CustomerDashboard = () => {
                             )}
 
                             <p className="text-stone-500">
-                              Recurring online payment is not yet enabled.
+                              Prepaid recurring deliveries require verified payment before the applicable payment deadline.
                             </p>
                           </div>
                         );
@@ -881,6 +897,10 @@ export const CustomerDashboard = () => {
               </div>
             </div>
           )}
+
+          <PaymentReceiptHistory key={'receipts-' + user.id} />
+          <HistoricalInvoices key={'orders-' + user.id} />
+          <InvoiceHistory key={user.id} />
 
           {/* Recent orders */}
           <div className="bg-white rounded-3xl p-6 border border-[#0F3E2E]/10 shadow-md space-y-4">

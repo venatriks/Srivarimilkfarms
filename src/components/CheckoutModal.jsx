@@ -1,3 +1,4 @@
+import { OrderConfirmation } from './InvoicePanel';
 import { API_BASE_URL } from '../lib/apiConfig';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -194,6 +195,9 @@ export const CheckoutModal = () => {
 
   const [submitError, setSubmitError] = useState('');
 
+  const [invoiceConfirmation, setInvoiceConfirmation] =
+    useState(null);
+
   const attemptRef = useRef(null);
 
   const completedSubscriptionsRef = useRef(new Map());
@@ -225,7 +229,12 @@ export const CheckoutModal = () => {
             clearCart();
           }
 
-          setCheckoutOpen(false);
+          setInvoiceConfirmation({
+            orderId: pending.orderId,
+            checkoutKey: pending.key,
+            guest: !user,
+            paymentStatus: 'Paid'
+          });
 
           showToast(
             'Your previous payment is verified. Order confirmed!',
@@ -289,6 +298,18 @@ export const CheckoutModal = () => {
 
 
   if (!checkoutOpen) return null;
+
+  if (invoiceConfirmation) {
+    return (
+      <OrderConfirmation
+        confirmation={invoiceConfirmation}
+        onClose={() => {
+          setInvoiceConfirmation(null);
+          setCheckoutOpen(false);
+        }}
+      />
+    );
+  }
 
 
 
@@ -890,7 +911,13 @@ export const CheckoutModal = () => {
             attemptRef.current = null;
             clearPendingCheckout();
             completedSubscriptionsRef.current.clear();
-            setCheckoutOpen(false);
+
+            setInvoiceConfirmation({
+              orderId: String(orderId),
+              checkoutKey,
+              guest: !user,
+              paymentStatus: 'Paid'
+            });
 
             showToast(
               'Payment verified successfully. Your order is confirmed!',
@@ -921,15 +948,23 @@ export const CheckoutModal = () => {
 
 
 
+      const invoiceCheckoutKey = attemptRef.current?.key;
+
       attemptRef.current = null;
-
       clearPendingCheckout();
-
       completedSubscriptionsRef.current.clear();
 
-      setCheckoutOpen(false);
-
-
+      if (createdOrder?.id) {
+        setInvoiceConfirmation({
+          orderId: String(createdOrder.id),
+          orderNumber: createdOrder.order_number,
+          checkoutKey: invoiceCheckoutKey,
+          guest: !user,
+          paymentStatus: 'Check invoice for payment details'
+        });
+      } else {
+        setCheckoutOpen(false);
+      }
 
       if (createdSubscriptions.length > 0 && createdOrder) {
 

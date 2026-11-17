@@ -1,4 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  InvoiceHistory,
+  PaymentReceiptHistory,
+  OrderInvoicePanel
+} from '../components/InvoicePanel';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Milk, Truck, Package, Plus, Edit, Check, Database,
@@ -3869,7 +3874,16 @@ export const AdminDashboard = () => {
         </div>
       )}
 
+      {activeTab === 'subscriptions' && (
+        <PaymentReceiptHistory key={user?.id} admin={true} />
+      )}
+
       {/* One-Time Order Detailed Modal */}
+
+      {activeTab === 'onetime-orders' && (
+        <InvoiceHistory admin={true} />
+      )}
+
       {selectedOneTimeOrderDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-[#DFB33F]/30 space-y-4 sm:space-y-6 relative my-auto max-h-[92vh] overflow-y-auto">
@@ -3950,6 +3964,11 @@ export const AdminDashboard = () => {
               </div>
 
             </div>
+
+            <OrderInvoicePanel
+              key={selectedOneTimeOrderDetails.id}
+              orderId={selectedOneTimeOrderDetails.id}
+            />
 
             <div className="pt-2 flex items-center justify-end space-x-3">
               <button

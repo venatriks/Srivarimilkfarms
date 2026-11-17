@@ -14,6 +14,17 @@ const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Orig
 const respond = (statusCode, body) => ({ statusCode, headers, body: JSON.stringify(body) });
 
 exports.handler = async event => {
+
+  if (
+    event?.source === 'srivari.internal.invoices' &&
+    event?.detail?.action === 'process-invoices' &&
+    !event?.requestContext
+  ) {
+    return require('./invoiceService')
+      .processInvoiceSchedule(event);
+  }
+
+
   // Internal AWS invocation only.
   // This is not an HTTP route.
   if (
@@ -71,6 +82,19 @@ exports.handler = async event => {
   if (origin && origin !== allowedOrigin) return respond(403, { error: 'Origin not allowed' });
   const method = event.requestContext?.http?.method || event.httpMethod;
   if (method === 'OPTIONS') return { statusCode: 204, headers, body: '' };
+  if (typeof path === 'string' &&
+      path.startsWith('/invoices/')) {
+    try {
+      return await require('./invoiceService')
+        .handleInvoiceRequest(event, headers);
+    } catch (error) {
+      console.error('Invoice handler unavailable');
+      return respond(503, {
+        error: 'Invoice service unavailable'
+      });
+    }
+  }
+
   if (path === '/payments/subscription/status') {
     if (method !== 'GET') {
       return respond(405, { error: 'Method not allowed' });
