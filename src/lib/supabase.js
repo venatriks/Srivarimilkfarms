@@ -16,4 +16,30 @@ export const isSupabaseConfigured = () => {
   );
 };
 
+// Only public Supabase credentials are permitted in the browser.
+function assertPublicSupabaseKey(key) {
+  if (key.startsWith('sb_publishable_')) return;
+
+  try {
+    const parts = key.split('.');
+    if (parts.length === 3) {
+      const base64 = parts[1]
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+
+      const payload = JSON.parse(
+        atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))
+      );
+
+      if (payload.role === 'anon') return;
+    }
+  } catch {
+    // Reject invalid credential formats.
+  }
+
+  throw new Error('Invalid public Supabase configuration.');
+}
+
+assertPublicSupabaseKey(supabaseAnonKey);
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

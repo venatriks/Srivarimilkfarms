@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
@@ -43,7 +43,13 @@ export const Auth = () => {
   // ============================================================
 
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const passwordInputRef = useRef(null);
+
+  const setPassword = (value = '') => {
+    if (passwordInputRef.current) {
+      passwordInputRef.current.value = value;
+    }
+  };
   const [showPassword, setShowPassword] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
 
@@ -95,6 +101,7 @@ export const Auth = () => {
     if (signingIn) return;
 
     const loginEmail = email.trim();
+    const password = passwordInputRef.current?.value || '';
 
     if (!loginEmail || !password) {
       showToast(
@@ -104,6 +111,7 @@ export const Auth = () => {
       return;
     }
 
+    setPassword('');
     setSigningIn(true);
 
     try {
@@ -409,7 +417,7 @@ export const Auth = () => {
                     autoComplete="email"
                     placeholder={
                       role === 'admin'
-                        ? 'admin@srivarimilkfarms.com'
+                        ? 'Enter admin email'
                         : 'name@example.com'
                     }
                     value={email}
@@ -460,8 +468,7 @@ export const Auth = () => {
                     required
                     autoComplete="current-password"
                     placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    ref={passwordInputRef}
                     className="w-full pl-10 pr-10 py-3 bg-stone-50 rounded-xl border border-stone-300 text-xs text-[#0F3E2E] focus:outline-none focus:border-[#0F3E2E]"
                   />
 
