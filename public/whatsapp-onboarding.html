@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>WhatsApp Setup | Srivari Milk Farms</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5ed;
+      font-family: Arial, sans-serif;
+      color: #26382d;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 580px;
+      background: white;
+      border: 1px solid #ddd;
+      border-top: 5px solid #b79a52;
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: 0 12px 40px #0000000d;
+    }
+
+    h1 {
+      color: #174b35;
+      font-size: 28px;
+    }
+
+    h2 {
+      font-size: 19px;
+    }
+
+    p {
+      line-height: 1.7;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      background: #174b35;
+      color: white;
+      border: 0;
+      border-radius: 9px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 16px;
+      background: #f1f5f2;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.6;
+    }
+
+    .warning {
+      background: #fff8e6;
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .small {
+      color: #666;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="card">
+
+    <h1>Srivari Milk Farms</h1>
+
+    <h2>WhatsApp Business Coexistence</h2>
+
+    <p>
+      Connect our existing WhatsApp Business App
+      to the WhatsApp Cloud API.
+    </p>
+
+    <p>
+      <strong>Business number:</strong>
+      +91 76761 60673
+    </p>
+
+    <p class="warning">
+      Authorized business administrators only.
+      Do not delete or migrate your existing
+      WhatsApp Business account.
+      Continue only with the existing Business
+      App connection option.
+    </p>
+
+    <button id="connect" disabled>
+      Connect WhatsApp Business
+    </button>
+
+    <div id="status" class="status"
+         role="status" aria-live="polite">
+      Loading Meta SDK...
+    </div>
+
+    <p class="small">
+      Temporary onboarding utility.
+      Not intended for customers.
+    </p>
+
+  </main>
+
+  <script>
+    'use strict';
+
+    const APP_ID = '1680015140421901';
+    const CONFIG_ID = '2142713633298560';
+    const API_VERSION = 'v27.0';
+
+    const button = document.getElementById('connect');
+    const status = document.getElementById('status');
+
+    let signupStarted = false;
+    let authorizationReceived = false;
+
+    function showStatus(message) {
+      status.textContent = message;
+    }
+
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: APP_ID,
+        cookie: false,
+        xfbml: false,
+        version: API_VERSION
+      });
+
+      button.disabled = false;
+
+      showStatus(
+        'Meta SDK ready.\n' +
+        'Click Connect WhatsApp Business to begin.'
+      );
+    };
+
+    window.addEventListener('message', function (event) {
+
+      const allowedOrigins = [
+        'https://www.facebook.com',
+        'https://web.facebook.com'
+      ];
+
+      if (!signupStarted) return;
+
+      if (!allowedOrigins.includes(event.origin)) {
+        return;
+      }
+
+      let data;
+
+      try {
+        data = typeof event.data === 'string'
+          ? JSON.parse(event.data)
+          : event.data;
+      } catch {
+        return;
+      }
+
+      if (data?.type !== 'WA_EMBEDDED_SIGNUP') {
+        return;
+      }
+
+      const eventType = data.event;
+
+      if (
+        eventType === 'FINISH' ||
+        eventType === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' ||
+        eventType === 'FINISH_ONLY_WABA'
+      ) {
+        const details = data.data || {};
+
+        const safeId = value =>
+          /^\d+$/.test(String(value || ''))
+            ? String(value)
+            : 'Not returned';
+
+        showStatus(
+          'Meta signup event: ' + eventType + '\n\n' +
+          'WABA ID: ' + safeId(details.waba_id) + '\n' +
+          'Phone Number ID: ' +
+          safeId(details.phone_number_id) + '\n\n' +
+          'Backend verification is still required.'
+        );
+
+      } else if (eventType === 'CANCEL') {
+
+        showStatus('Meta onboarding was cancelled.');
+        signupStarted = false;
+        button.disabled = false;
+
+      } else if (eventType === 'ERROR') {
+
+        showStatus(
+          'Meta reported an onboarding error. ' +
+          'Review the error in the Meta popup.'
+        );
+
+        signupStarted = false;
+        button.disabled = false;
+      }
+    });
+
+    button.addEventListener('click', function () {
+
+      if (signupStarted) return;
+
+      signupStarted = true;
+      button.disabled = true;
+
+      showStatus('Opening Meta Embedded Signup...');
+
+      try {
+        FB.login(function (response) {
+
+          if (response?.authResponse?.code) {
+
+            authorizationReceived = true;
+
+            // Diagnostic phase only.
+            // Never print, save or transmit the code.
+            // Secure server-side exchange is pending.
+
+            if (!status.textContent.startsWith('Meta signup event:')) {
+              showStatus(
+                'Authorization response received.\n' +
+                'Secure backend exchange is pending.'
+              );
+            }
+
+          } else if (!authorizationReceived) {
+
+            showStatus(
+              'No authorization code received. ' +
+              'The flow may have been cancelled or blocked.'
+            );
+
+            signupStarted = false;
+            button.disabled = false;
+          }
+
+        }, {
+          config_id: CONFIG_ID,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: {
+            setup: {},
+            featureType: 'whatsapp_business_app_onboarding',
+            sessionInfoVersion: '3'
+          }
+        });
+
+      } catch {
+        signupStarted = false;
+        button.disabled = false;
+        showStatus('Unable to open Meta signup.');
+      }
+    });
+
+    const sdk = document.createElement('script');
+
+    sdk.id = 'facebook-jssdk';
+    sdk.src = 'https://connect.facebook.net/en_US/sdk.js';
+    sdk.async = true;
+    sdk.defer = true;
+
+    sdk.onerror = function () {
+      showStatus('Failed to load Meta SDK.');
+    };
+
+    document.head.appendChild(sdk);
+  </script>
+
+</body>
+</html>
