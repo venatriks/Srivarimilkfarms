@@ -85,6 +85,44 @@ async function finalEligibility(db, job) {
     return false;
   }
 
+  if (
+    job.template_name === 'smf_receipt_pdf' ||
+    job.document_type === 'receipt'
+  ) {
+    if (
+      job.template_name !== 'smf_receipt_pdf' ||
+      job.document_type !== 'receipt' ||
+      job.source_type !== 'subscription' ||
+      !job.document_id ||
+      !job.customer_id
+    ) {
+      return false;
+    }
+
+    const { data: receipt, error: receiptError } =
+      await db.rpc('get_subscription_payment_receipt', {
+        p_payment_attempt_id: job.document_id
+      });
+
+    if (receiptError) {
+      throw new Error('WHATSAPP_RECEIPT_CHECK_FAILED');
+    }
+
+    return Boolean(
+      receipt &&
+      receipt.payment_status === 'Paid' &&
+      String(receipt.receipt_id) ===
+        String(job.document_id) &&
+      String(receipt.customer_id) ===
+        String(job.customer_id) &&
+      String(receipt.subscription_invoice_id) ===
+        String(job.source_id) &&
+      receipt.billing_type === 'prepaid' &&
+      String(job.template_parameters?.[0]) ===
+        String(receipt.receipt_number)
+    );
+  }
+
   if (![
     'smf_payment_due',
     'smf_renewal_reminder'
@@ -213,6 +251,7 @@ async function finalEligibility(db, job) {
 
 async function processNotification(db, job) {
   let sending = false;
+  let historyCreated = false;
 
   try {
     let language = job.language_code;
@@ -338,6 +377,8 @@ async function processNotification(db, job) {
       throw new Error('WHATSAPP_HISTORY_INSERT_FAILED');
     }
 
+    historyCreated = true;
+
     if (!(await finalEligibility(db, job))) {
       const { error: cancelHistoryError } = await db
         .from('whatsapp_message_history')
@@ -413,7 +454,7 @@ async function processNotification(db, job) {
       error.message || 'WHATSAPP_FAILED'
     ).slice(0, 200);
 
-    if (sending) {
+    if (historyCreated) {
       const { error: historyError } = await db
         .from('whatsapp_message_history')
         .update({
