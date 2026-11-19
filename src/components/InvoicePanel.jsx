@@ -515,6 +515,7 @@ export function PaymentReceiptHistory({ admin = false }) {
           ? 'subscription_plan'
           : 'subscription_delivery',
         issued_at: r.paid_at,
+        payment_time_source: r.payment_time_source,
         total_paise: r.amount_paid_paise,
         payment_status_at_issue: r.payment_status,
         period_start: r.period_start,
@@ -594,7 +595,10 @@ export function PaymentReceiptHistory({ admin = false }) {
               </p>
 
               <p className="text-xs text-stone-500">
-                Paid on: {formatDate(invoice.issued_at)}
+                {invoice.payment_time_source === 'verification'
+                  ? 'Payment verified on: '
+                  : 'Paid on: '}
+                {formatDate(invoice.issued_at)}
               </p>
             </div>
 

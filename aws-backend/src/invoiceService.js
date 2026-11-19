@@ -406,7 +406,11 @@ function renderPDF(invoice, status) {
 
     const orderLines = [
       (invoice.is_receipt ? 'Receipt No: ' : 'Invoice No: ') + invoice.invoice_number,
-      (invoice.is_receipt ? 'Paid on: ' : 'Issued: ') + dateLabel(invoice.issued_at),
+      (invoice.is_receipt
+        ? (invoice.payment_time_source === 'verification'
+            ? 'Payment verified on: '
+            : 'Paid on: ')
+        : 'Issued: ') + dateLabel(invoice.issued_at),
       customer.order_number
         ? 'Order No: ' + customer.order_number : '',
       invoice.period_start
@@ -890,6 +894,7 @@ async function handleInvoiceRequest(event, headers) {
           ? 'subscription_plan'
           : 'subscription_delivery',
         issued_at: receipt.paid_at,
+        payment_time_source: receipt.payment_time_source,
         business_snapshot: receipt.business_snapshot,
         customer_snapshot: receipt.customer_snapshot,
         period_start: receipt.period_start,
@@ -1424,6 +1429,7 @@ async function renderWhatsAppDocument(db, job) {
           ? 'subscription_plan'
           : 'subscription_delivery',
         issued_at: receipt.paid_at,
+        payment_time_source: receipt.payment_time_source,
         business_snapshot: receipt.business_snapshot,
         customer_snapshot: receipt.customer_snapshot,
         period_start: receipt.period_start,

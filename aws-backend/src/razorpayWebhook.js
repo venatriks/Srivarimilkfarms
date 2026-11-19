@@ -231,7 +231,22 @@ async function handleRazorpayWebhook(event) {
         .maybeSingle();
 
       if (invoiceError) throw invoiceError;
-      if (!invoice || invoice.invoice_kind !== 'delivery') return;
+      if (!invoice) return;
+
+      if (invoice.invoice_kind === 'plan') {
+        const { error } = await backend.rpc(
+          'record_verified_plan_capture',
+          {
+            p_attempt_id: attempt.attempt_id,
+            p_payment_id: verified.id
+          }
+        );
+
+        if (error) throw error;
+        return;
+      }
+
+      if (invoice.invoice_kind !== 'delivery') return;
 
       const { data: decision, error } = await backend.rpc(
         'record_verified_recurring_capture',
