@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1172.0",
     "@supabase/supabase-js": "^2.119.0",
     "pdfkit": "^0.20.2"
   }

@@ -705,7 +705,12 @@ function renderPDF(invoice, status) {
 
     const thanks = String(
       invoice.thank_you_snapshot || ''
-    ).replace(/\n[ \t]*\n+/g, '\n');
+    )
+      .replace(/\r\n?/g, '\n')
+      .replace(/\\r\\n|\\n|\\r/g, '\n')
+      .replace(/\u00D0/g, '')
+      .replace(/\n[ \t]*\n+/g, '\n')
+      .trim();
     const thankHeight = measure(
       thanks, CW - 36, 9, 'Times-Roman'
     ) + 20;
@@ -1230,7 +1235,7 @@ async function handleInvoiceRequest(event, headers) {
             db,
             'validate_guest_invoice_access',
             {
-              p_access_id: body.access_id,
+              p_invoice_id: invoice.id,
               p_token_hash: hashToken(body.token)
             }
           );
@@ -1349,7 +1354,129 @@ async function processInvoiceSchedule(event) {
   };
 }
 
+
+async function renderWhatsAppDocument(db, job) {
+
+  let pdf;
+  let filename;
+
+  if (job.template_name === 'smf_invoice_pdf') {
+
+    const { data: invoice, error } = await db
+      .from('invoice_documents')
+      .select('*')
+      .eq('id', job.document_id)
+      .single();
+
+    if (error || !invoice) {
+      throw new Error('WHATSAPP_INVOICE_UNAVAILABLE');
+    }
+
+    if (invoice.customer_id !== job.customer_id) {
+      throw new Error('WHATSAPP_INVOICE_OWNER_MISMATCH');
+    }
+
+    if (job.source_type === 'one_time_order_checkout') {
+      if (invoice.one_time_order_id !== job.source_id) {
+        throw new Error('WHATSAPP_ORDER_MISMATCH');
+      }
+    } else {
+      if (!job.customer_id ||
+          invoice.subscription_invoice_id !== job.source_id) {
+        throw new Error('WHATSAPP_INVOICE_SOURCE_MISMATCH');
+      }
+    }
+
+    const status = await getCurrentStatus(db, invoice);
+
+    pdf = await renderPDF(invoice, status);
+    filename = invoice.invoice_number;
+
+  } else if (job.template_name === 'smf_receipt_pdf') {
+
+    const receipt = await rpc(
+      db,
+      'get_subscription_payment_receipt',
+      { p_payment_attempt_id: job.document_id }
+    );
+
+    if (!receipt || !job.customer_id ||
+        receipt.customer_id !== job.customer_id) {
+      throw new Error('WHATSAPP_RECEIPT_UNAVAILABLE');
+    }
+
+      const gross = Number(receipt.gross_paise);
+      const credit = Number(receipt.credit_applied_paise);
+      const amount = Number(receipt.amount_paid_paise);
+
+      if (
+        ![gross, credit, amount].every(Number.isSafeInteger) ||
+        gross < 1 || credit < 0 || amount < 1 ||
+        gross - credit !== amount
+      ) {
+        throw new Error('INVALID_RECEIPT_TOTAL');
+      }
+
+      const document = {
+        is_receipt: true,
+        invoice_number: receipt.receipt_number,
+        invoice_type: receipt.invoice_kind === 'plan'
+          ? 'subscription_plan'
+          : 'subscription_delivery',
+        issued_at: receipt.paid_at,
+        business_snapshot: receipt.business_snapshot,
+        customer_snapshot: receipt.customer_snapshot,
+        period_start: receipt.period_start,
+        period_end: receipt.period_end,
+        items_snapshot: [{
+          product_name:
+            receipt.product_name + ' - Prepaid subscription',
+          unit: 'Payment',
+          quantity: 1,
+          unit_price_paise: gross,
+          line_total_paise: gross
+        }],
+        subtotal_paise: gross,
+        delivery_charge_paise: 0,
+        discount_paise: credit,
+        total_paise: amount,
+        payment_method: 'Razorpay',
+        payment_reference: receipt.payment_reference,
+        payment_status_at_issue: 'Paid',
+        terms_snapshot: [
+          'This receipt acknowledges the original verified payment.',
+          'This is a payment receipt, not a delivery or tax invoice.',
+          'Delivery remains subject to subscription terms and approval.',
+          'The final invoice is generated after the eligible delivery cycle is completed.',
+          'Please retain this receipt for your records.'
+        ],
+        thank_you_snapshot:
+          'Thank you for choosing Srivari Milk Farms.\\n\\n' +
+          'Freshness You Can Trust, Quality You Deserve!\\n\\n' +
+          'Team Srivari Milk Farms'
+      };
+
+
+
+    pdf = await renderPDF(document, {
+      payment: receipt.payment_status
+    });
+
+    filename = receipt.receipt_number;
+
+  } else {
+    throw new Error('WHATSAPP_INVALID_DOCUMENT');
+  }
+
+  return {
+    pdf,
+    filename: String(filename)
+      .replace(/[^A-Za-z0-9_-]/g, '') + '.pdf'
+  };
+}
+
 module.exports = {
+  renderWhatsAppDocument,
   handleInvoiceRequest,
   processInvoiceSchedule
 };

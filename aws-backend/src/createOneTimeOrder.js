@@ -13,7 +13,7 @@ const allowedOrigin = process.env.FRONTEND_ORIGIN || 'https://srivarimilkfarms.c
 const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': allowedOrigin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Vary': 'Origin' };
 const respond = (statusCode, body) => ({ statusCode, headers, body: JSON.stringify(body) });
 
-exports.handler = async event => {
+const originalHandler = async event => {
 
   if (
     event?.source === 'srivari.internal.invoices' &&
@@ -67,6 +67,12 @@ exports.handler = async event => {
 
   const path = event.rawPath || event.path;
 
+  if (path === '/whatsapp/webhook') {
+    return require('./whatsappWebhook')
+      .handleWhatsAppWebhook(event);
+  }
+
+
   if (path === '/payments/webhook') {
     const webhookMethod =
       event.requestContext?.http?.method || event.httpMethod;
@@ -79,9 +85,23 @@ exports.handler = async event => {
   }
   const requestHeaders = event.headers || {};
   const origin = requestHeaders.origin || requestHeaders.Origin;
-  if (origin && origin !== allowedOrigin) return respond(403, { error: 'Origin not allowed' });
+  if (origin && origin !== allowedOrigin) {
+    return respond(403, { error: 'Origin not allowed' });
+  }
   const method = event.requestContext?.http?.method || event.httpMethod;
   if (method === 'OPTIONS') return { statusCode: 204, headers, body: '' };
+
+  if (path === '/whatsapp/verification') {
+    try {
+      return await require('./whatsappVerification')
+        .handleWhatsAppVerification(event, headers);
+    } catch {
+      return respond(503, {
+        error: 'WhatsApp verification unavailable'
+      });
+    }
+  }
+
   if (typeof path === 'string' &&
       path.startsWith('/invoices/')) {
     try {
@@ -172,15 +192,15 @@ exports.handler = async event => {
     // Never attach the caller's bearer token to this privileged client.
     const backend = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await backend.rpc(
-      payload.p_payment_method === 'Razorpay'
-        ? 'create_one_time_order_razorpay_pending'
-        : 'create_one_time_order_backend',
+      'create_one_time_order_whatsapp_checkout',
       {
       p_customer_name: payload.p_customer_name, p_customer_email: payload.p_customer_email,
       p_customer_phone: payload.p_customer_phone, p_address: payload.p_address,
       p_items: payload.p_items, p_delivery_slot: payload.p_delivery_slot,
       p_instructions: payload.p_instructions || null, p_payment_method: payload.p_payment_method,
-      p_idempotency_key: payload.p_idempotency_key, p_verified_customer_id: verifiedCustomerId
+      p_idempotency_key: payload.p_idempotency_key,
+      p_verified_customer_id: verifiedCustomerId,
+      p_whatsapp_consent: payload.p_whatsapp_consent === true
     });
     if (error) { console.error('Checkout RPC failed:', error.code); return respond(400, { error: 'Unable to create order. Please verify your details.' }); }
     // The RPC may return an existing order for an idempotent retry. Always
@@ -322,4 +342,126 @@ exports.handler = async event => {
       }
     });
   } catch (error) { console.error('Checkout service error:', error.message); return respond(500, { error: 'Checkout service temporarily unavailable' }); }
+};
+
+
+// WhatsApp processing is isolated from HTTP responses.
+const {
+  LambdaClient,
+  InvokeCommand
+} = require('@aws-sdk/client-lambda');
+
+const whatsappLambda = new LambdaClient({
+  maxAttempts: 1
+});
+
+async function runWhatsAppWorker(context, scheduled = false) {
+  const db = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    }
+  );
+
+  const operations = [
+    'whatsapp_queue_payment_receipts'
+  ];
+
+  if (scheduled) {
+    operations.push(
+      'whatsapp_queue_due_reminders',
+      'whatsapp_cancel_stale_reminders',
+      'whatsapp_recover_interrupted'
+    );
+  }
+
+  for (const rpc of operations) {
+    const { error } = await db.rpc(rpc);
+
+    if (error) {
+      console.error('WhatsApp RPC failed:', rpc);
+    }
+  }
+
+  if (context?.getRemainingTimeInMillis() >= 35000) {
+    return require('./whatsappWorker')
+      .processWhatsAppNotifications({
+        limit: 5,
+        context
+      });
+  }
+
+  return { skipped: true };
+}
+
+exports.handler = async (event, context) => {
+  const enabled =
+    process.env.ENABLE_WHATSAPP_NOTIFICATIONS === 'true';
+
+  // Internal invocation only. Never invoke itself again.
+  if (
+    event?.source === 'srivari.internal.whatsapp' &&
+    event?.detail?.action === 'process-notifications' &&
+    !event?.requestContext
+  ) {
+    if (!enabled) {
+      return { skipped: true, reason: 'disabled' };
+    }
+
+    return runWhatsAppWorker(
+      context,
+      event.detail.scheduled === true
+    );
+  }
+
+  const result = await originalHandler(event);
+
+  if (!enabled) return result;
+
+  const path = event.rawPath || event.path;
+
+  const invoiceSchedule =
+    event.source === 'srivari.internal.invoices' &&
+    event.detail?.action === 'process-invoices' &&
+    !event.requestContext;
+
+  const successfulBusinessEvent =
+    result?.statusCode >= 200 &&
+    result?.statusCode < 300 &&
+    [
+      '/checkout',
+      '/payments/webhook',
+      '/invoices/one-time'
+    ].includes(path);
+
+  if (!invoiceSchedule && !successfulBusinessEvent) {
+    return result;
+  }
+
+  try {
+    await whatsappLambda.send(
+      new InvokeCommand({
+        FunctionName: process.env.AWS_LAMBDA_FUNCTION_NAME,
+        InvocationType: 'Event',
+        Payload: Buffer.from(JSON.stringify({
+          source: 'srivari.internal.whatsapp',
+          detail: {
+            action: 'process-notifications',
+            scheduled: invoiceSchedule
+          }
+        }))
+      }),
+      {
+        abortSignal: AbortSignal.timeout(2000)
+      }
+    );
+  } catch {
+    console.error('WhatsApp background invocation failed');
+  }
+
+  return result;
 };

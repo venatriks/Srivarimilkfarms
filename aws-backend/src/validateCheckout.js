@@ -1,9 +1,11 @@
-const allowedFields = new Set(['p_customer_name','p_customer_email','p_customer_phone','p_address','p_items','p_delivery_slot','p_instructions','p_payment_method','p_idempotency_key']);
+const allowedFields = new Set(['p_customer_name','p_customer_email','p_customer_phone','p_address','p_items','p_delivery_slot','p_instructions','p_payment_method','p_idempotency_key','p_whatsapp_consent']);
 const paymentMethods = new Set(['UPI Instant Pay','Cash on Delivery','Razorpay']);
 const deliverySlots = new Set(['5:00 AM - 6:00 AM','5:30 AM - 6:30 AM','6:30 AM - 7:30 AM']);
 const validText = (value,maxLength) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maxLength;
 function validateCheckout(p) {
   if (!p || typeof p !== 'object' || Array.isArray(p)) return false;
+  if (p.p_whatsapp_consent !== undefined &&
+      typeof p.p_whatsapp_consent !== 'boolean') return false;
   if (Object.keys(p).some(k => !allowedFields.has(k))) return false;
   if (!validText(p.p_customer_name,100) || !validText(p.p_customer_email,254) || !validText(p.p_customer_phone,20) || !validText(p.p_address,500)) return false;
   if (!deliverySlots.has(p.p_delivery_slot) || !paymentMethods.has(p.p_payment_method)) return false;

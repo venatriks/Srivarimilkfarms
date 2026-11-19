@@ -1,3 +1,4 @@
+import WhatsAppVerification from '../components/WhatsAppVerification';
 import { HistoricalInvoices } from '../components/HistoricalInvoices';
 import React, { useMemo, useState } from 'react';
 import { InvoiceHistory, PaymentReceiptHistory } from '../components/InvoicePanel';
@@ -383,6 +384,7 @@ export const CustomerDashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+      <WhatsAppVerification />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
         {/* LEFT COLUMN */}
         <div className="lg:col-span-2 space-y-6 sm:space-y-10">

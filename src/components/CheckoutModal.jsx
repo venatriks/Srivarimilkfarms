@@ -170,6 +170,7 @@ export const CheckoutModal = () => {
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
 
   const [phone, setPhone] = useState(user?.phone || '+91 ');
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
 
   const [address, setAddress] = useState(user?.address || '');
 
@@ -286,6 +287,7 @@ export const CheckoutModal = () => {
 
 
     if (!checkoutOpen) {
+      setWhatsappConsent(false);
 
       completedSubscriptionsRef.current.clear();
 
@@ -757,7 +759,8 @@ export const CheckoutModal = () => {
 
               ...orderPayload,
 
-              p_idempotency_key: attemptRef.current.key
+              p_idempotency_key: attemptRef.current.key,
+              p_whatsapp_consent: whatsappConsent
 
             })
 
@@ -1309,6 +1312,22 @@ export const CheckoutModal = () => {
               </div>
 
 
+
+              {cart.some(item => item.buyType !== 'subscription') && (
+                <label className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-[#0F3E2E]">
+                  <input
+                    type="checkbox"
+                    checked={whatsappConsent}
+                    onChange={e => setWhatsappConsent(e.target.checked)}
+                    className="mt-1 accent-green-800"
+                  />
+                  <span>
+                    I agree to receive order, payment and delivery
+                    updates on WhatsApp using my checkout mobile
+                    number. Reply STOP to unsubscribe.
+                  </span>
+                </label>
+              )}
 
               {/* Morning Slot */}
 
