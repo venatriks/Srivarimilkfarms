@@ -453,11 +453,11 @@ export const Home = () => {
               avatar: "https://drive.google.com/file/d/13mrAfgWSxjjeuq0KHhszSC2BJTQuFd-z/view?usp=sharing?auto=format&fit=crop&w=150&q=80"
             },
             {
-              name: "Dr. Mansoor",
+              name: "Mrs. Pooja M",
               role: "Doctor",
               location: "Ballari",
               comment: "Their farm paneer is unbelievably soft and fresh! 18.5 grams of clean A2 protein per 100g with no synthetic coagulation agents. Highly recommend Srivari Milk Farms.",
-              avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80"
+              avatar: "https://drive.google.com/file/d/1BFk7Zcs9UfEvClCp2Ywg39TY6Wsc90oK/view?usp=sharing?auto=format&fit=crop&w=150&q=80"
             }
           ].map((item, idx) => (
             <div key={idx} className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F3E2E]/10 shadow-md flex flex-col justify-between space-y-5 sm:space-y-6">
