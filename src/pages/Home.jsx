@@ -443,14 +443,14 @@ export const Home = () => {
               role: "Assistant Professor",
               location: "Rayadurgam",
               comment: "Switching to Srivari's A2 milk was the best decision for my toddlers. The milk has a rich, sweet creaminess and zero digestive issues compared to store packets. The 5 AM glass bottle delivery is incredibly punctual!",
-              avatar: "https://images.unsplash.com/photo-1594824813566-88855ce78961?auto=format&fit=crop&w=150&q=80"
+              avatar: "https://drive.google.com/file/d/1FB1VUIrCyxMCdZaXzD9tiq6-4tyXCE1D/view?usp=sharing?auto=format&fit=crop&w=150&q=80"
             },
             {
               name: "Sri Ram Sai Deepak",
               role: "Software Engineer",
               location: "Alur",
               comment: "The Vedic Bilona Ghee smells exactly like the ghee my grandmother made in our ancestral village. The quality testing reports giving exact fat and SNF percentages give us 100% confidence.",
-              avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80"
+              avatar: "https://drive.google.com/file/d/13mrAfgWSxjjeuq0KHhszSC2BJTQuFd-z/view?usp=sharing?auto=format&fit=crop&w=150&q=80"
             },
             {
               name: "Dr. Mansoor",
