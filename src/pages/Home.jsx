@@ -443,21 +443,21 @@ export const Home = () => {
               role: "Assistant Professor",
               location: "Rayadurgam",
               comment: "Switching to Srivari's A2 milk was the best decision for my toddlers. The milk has a rich, sweet creaminess and zero digestive issues compared to store packets. The 5 AM glass bottle delivery is incredibly punctual!",
-              avatar: "https://drive.google.com/file/d/1FB1VUIrCyxMCdZaXzD9tiq6-4tyXCE1D/view?usp=sharing?auto=format&fit=crop&w=150&q=80"
+              avatar: `${import.meta.env.BASE_URL}images/testimonials/Anjana_PIC.webp`
             },
             {
               name: "Sri Ram Sai Deepak",
               role: "Software Engineer",
               location: "Alur",
               comment: "The Vedic Bilona Ghee smells exactly like the ghee my grandmother made in our ancestral village. The quality testing reports giving exact fat and SNF percentages give us 100% confidence.",
-              avatar: "https://drive.google.com/file/d/13mrAfgWSxjjeuq0KHhszSC2BJTQuFd-z/view?usp=sharing?auto=format&fit=crop&w=150&q=80"
+              avatar: `${import.meta.env.BASE_URL}images/testimonials/deepak.webp`
             },
             {
               name: "Mrs. Pooja M",
               role: "Doctor",
               location: "Ballari",
               comment: "Their farm paneer is unbelievably soft and fresh! 18.5 grams of clean A2 protein per 100g with no synthetic coagulation agents. Highly recommend Srivari Milk Farms.",
-              avatar: "https://drive.google.com/file/d/1BFk7Zcs9UfEvClCp2Ywg39TY6Wsc90oK/view?usp=sharing?auto=format&fit=crop&w=150&q=80"
+              avatar: `${import.meta.env.BASE_URL}images/testimonials/pooja.webp`
             }
           ].map((item, idx) => (
             <div key={idx} className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F3E2E]/10 shadow-md flex flex-col justify-between space-y-5 sm:space-y-6">
