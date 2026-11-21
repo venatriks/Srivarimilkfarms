@@ -171,6 +171,7 @@ export const CheckoutModal = () => {
 
   const [phone, setPhone] = useState(user?.phone || '+91 ');
   const [whatsappConsent, setWhatsappConsent] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [address, setAddress] = useState(user?.address || '');
 
@@ -288,6 +289,7 @@ export const CheckoutModal = () => {
 
     if (!checkoutOpen) {
       setWhatsappConsent(false);
+      setTermsAccepted(false);
 
       completedSubscriptionsRef.current.clear();
 
@@ -348,6 +350,12 @@ export const CheckoutModal = () => {
   const handleSubmit = async (e) => {
 
     e.preventDefault();
+
+    if (!termsAccepted) {
+      setSubmitError('Please accept the Terms of Service before placing your order.');
+      showToast('Please accept the Terms of Service.', 'error');
+      return;
+    }
 
 
 
@@ -2010,6 +2018,30 @@ export const CheckoutModal = () => {
           </div>
 
 
+
+          {/* Required Terms of Service acceptance */}
+          <label className="flex items-start gap-3 rounded-xl border border-stone-200 bg-white p-3 text-xs text-[#0F3E2E]">
+            <input
+              type="checkbox"
+              required
+              checked={termsAccepted}
+              onChange={(event) => setTermsAccepted(event.target.checked)}
+              className="mt-0.5 accent-[#0F3E2E]"
+            />
+            <span>
+              I have read and agree to the{' '}
+              <a
+                href="/terms-of-service"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-[#0F3E2E] underline hover:text-emerald-700"
+                onClick={(event) => event.stopPropagation()}
+              >
+                Terms of Service
+              </a>
+              . *
+            </span>
+          </label>
 
           {/* Submit Button */}
 

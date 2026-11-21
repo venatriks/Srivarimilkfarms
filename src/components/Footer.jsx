@@ -158,7 +158,7 @@ export const Footer = () => {
           <p>© 2026 Srivari Milk Farms Private Limited. All rights reserved.</p>
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
             <span className="hover:text-[#DFB33F] cursor-pointer">Privacy Policy</span>
-            <span className="hover:text-[#DFB33F] cursor-pointer">Terms of Service</span>
+            <a href="/terms-of-service" className="hover:text-[#DFB33F] cursor-pointer">Terms of Service</a>
             <span className="hover:text-[#DFB33F] cursor-pointer">Refund Policy</span>
           </div>
         </div>

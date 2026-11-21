@@ -17,6 +17,7 @@ const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard').then(mo
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const AboutUs = lazy(() => import('./pages/AboutUs').then(module => ({ default: module.AboutUs })));
 const ContactUs = lazy(() => import('./pages/ContactUs').then(module => ({ default: module.ContactUs })));
+const TermsOfService = lazy(() => import('./pages/TermsOfService').then(module => ({ default: module.TermsOfService })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then(module => ({ default: module.ResetPassword })));
 
 // Scroll to top on route change helper
@@ -58,6 +59,7 @@ export function App() {
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/about" element={<AboutUs />} />
                 <Route path="/contact" element={<ContactUs />} />
+                <Route path="/terms-of-service" element={<TermsOfService />} />
               </Routes>
             </Suspense>
           </main>
