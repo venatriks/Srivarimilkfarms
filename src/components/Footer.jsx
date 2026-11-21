@@ -160,7 +160,6 @@ export const Footer = () => {
             <a href="/privacy-policy" className="hover:text-[#DFB33F] cursor-pointer">Privacy Policy</a>
             <a href="/terms-of-service" className="hover:text-[#DFB33F] cursor-pointer">Terms of Service</a>
             <a href="/refund-policy" className="hover:text-[#DFB33F] cursor-pointer">Refund & Cancellation Policy</a>
-            <span className="hover:text-[#DFB33F] cursor-pointer">Refund Policy</span>
           </div>
         </div>
 
