@@ -17,6 +17,8 @@ const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard').then(mo
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const AboutUs = lazy(() => import('./pages/AboutUs').then(module => ({ default: module.AboutUs })));
 const ContactUs = lazy(() => import('./pages/ContactUs').then(module => ({ default: module.ContactUs })));
+const RefundPolicy = lazy(() => import('./pages/RefundPolicy').then(m => ({ default: m.RefundPolicy })));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 const TermsOfService = lazy(() => import('./pages/TermsOfService').then(module => ({ default: module.TermsOfService })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then(module => ({ default: module.ResetPassword })));
 
@@ -60,6 +62,8 @@ export function App() {
                 <Route path="/about" element={<AboutUs />} />
                 <Route path="/contact" element={<ContactUs />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />
+                <Route path="/refund-policy" element={<RefundPolicy />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               </Routes>
             </Suspense>
           </main>
