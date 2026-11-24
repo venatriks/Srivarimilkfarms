@@ -2577,7 +2577,7 @@ export const AppProvider = ({ children }) => {
           data: createdSubscription,
           error: subscriptionError
         } = await supabase.rpc(
-          'create_customer_subscription',
+          'create_customer_subscription_with_consent',
           {
             p_product_id: productId,
             p_quantity: quantity,
@@ -2586,7 +2586,8 @@ export const AppProvider = ({ children }) => {
               deliverySlot || DEFAULT_DELIVERY_SLOT,
             p_start_date: item?.startDate || null,
             p_billing_type: billingType,
-            p_plan_days: fixedIntervalProduct ? null : planDays
+            p_plan_days: fixedIntervalProduct ? null : planDays,
+            p_whatsapp_consent: item?.whatsappConsent === true
           }
         );
 

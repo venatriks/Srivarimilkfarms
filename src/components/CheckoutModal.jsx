@@ -171,6 +171,22 @@ export const CheckoutModal = () => {
 
   const [phone, setPhone] = useState(user?.phone || '+91 ');
   const [whatsappConsent, setWhatsappConsent] = useState(false);
+
+  const [subscriptionWhatsappConsent, setSubscriptionWhatsappConsent] =
+    useState(false);
+
+  const registeredWhatsappPhone = String(user?.phone || '').trim();
+
+  const registeredWhatsappDigits =
+    registeredWhatsappPhone.replace(/[^0-9]/g, '');
+
+  const validRegisteredWhatsappPhone =
+    /^[6-9][0-9]{9}$/.test(registeredWhatsappDigits) ||
+    /^[1-9][0-9]{10,14}$/.test(registeredWhatsappDigits);
+
+  useEffect(() => {
+    setSubscriptionWhatsappConsent(false);
+  }, [user?.id, user?.phone, checkoutOpen]);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [address, setAddress] = useState(user?.address || '');
@@ -289,6 +305,7 @@ export const CheckoutModal = () => {
 
     if (!checkoutOpen) {
       setWhatsappConsent(false);
+      setSubscriptionWhatsappConsent(false);
       setTermsAccepted(false);
 
       completedSubscriptionsRef.current.clear();
@@ -542,7 +559,11 @@ export const CheckoutModal = () => {
 
             billingType: recurring ? 'prepaid' : subscriptionBillingType,
 
-            planDays: recurring ? null : subscriptionPlanDays
+            planDays: recurring ? null : subscriptionPlanDays,
+
+            whatsappConsent:
+              subscriptionWhatsappConsent === true &&
+              validRegisteredWhatsappPhone
 
           },
 
@@ -1335,6 +1356,58 @@ export const CheckoutModal = () => {
                     number. Reply STOP to unsubscribe.
                   </span>
                 </label>
+              )}
+
+              {hasSubscriptionItem && user && (
+                <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+
+                  <label className="flex items-start gap-3 text-xs text-[#0F3E2E]">
+
+                    <input
+                      type="checkbox"
+                      checked={subscriptionWhatsappConsent}
+                      disabled={
+                        submitting ||
+                        !validRegisteredWhatsappPhone
+                      }
+                      onChange={e =>
+                        setSubscriptionWhatsappConsent(
+                          e.target.checked
+                        )
+                      }
+                      className="mt-1 accent-green-800"
+                    />
+
+                    <span>
+                      <strong>
+                        WhatsApp Subscription Updates (Optional)
+                      </strong>
+
+                      <span className="block mt-1">
+                        I agree to receive subscription, payment
+                        and delivery updates from Srivari Milk Farms
+                        on WhatsApp using my registered mobile number.
+                        Reply STOP to unsubscribe.
+                      </span>
+
+                      <span className="block mt-2 font-semibold">
+                        Registered Mobile:
+                        {' '}
+                        {registeredWhatsappPhone || 'Not available'}
+                      </span>
+                    </span>
+
+                  </label>
+
+                  {!validRegisteredWhatsappPhone && (
+                    <p className="mt-2 text-xs text-amber-700">
+                      Update your registered profile mobile number
+                      to enable WhatsApp subscription updates.
+                      You can continue checkout without consent.
+                    </p>
+                  )}
+
+                </div>
               )}
 
               {/* Morning Slot */}
