@@ -243,3 +243,37 @@ module.exports = {
   sendTemplate,
   TEMPLATE_PARAMETERS
 };
+
+
+module.exports.sendAdminText = async (phone, body, id) => {
+  if (
+    !/^\+[1-9]\d{7,14}$/.test(phone) ||
+    typeof body !== 'string' ||
+    !body.trim() ||
+    body.length > 4096
+  ) {
+    throw new Error('INVALID_TEXT');
+  }
+
+  const result = await request('messages', {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: phone.slice(1),
+    type: 'text',
+    text: {
+      body,
+      preview_url: false
+    },
+    biz_opaque_callback_data: id
+  });
+
+  if (!result.messages?.[0]?.id) {
+    const error = new Error('MISSING_MESSAGE_ID');
+    error.uncertain = true;
+    throw error;
+  }
+
+  return {
+    provider_message_id: String(result.messages[0].id)
+  };
+};

@@ -92,6 +92,12 @@ const originalHandler = async event => {
   if (method === 'OPTIONS') return { statusCode: 204, headers, body: '' };
 
   if (path === '/whatsapp/verification') {
+
+    if (event.queryStringParameters?.admin_messaging === '1') {
+      return await require('./adminWhatsApp')
+        .handleAdminWhatsApp(event, headers);
+    }
+
     try {
       return await require('./whatsappVerification')
         .handleWhatsAppVerification(event, headers);

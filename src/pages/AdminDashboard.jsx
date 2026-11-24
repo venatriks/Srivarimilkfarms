@@ -1,3 +1,4 @@
+import AdminWhatsApp from '../components/AdminWhatsApp';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   InvoiceHistory,
@@ -1284,6 +1285,22 @@ export const AdminDashboard = () => {
 
         </div>
       </div>
+
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('whatsapp')}
+        className={`mb-4 px-5 py-3 rounded-2xl
+          font-bold text-sm transition-all border ${
+            activeTab === 'whatsapp'
+              ? 'bg-green-800 text-white'
+              : 'bg-white text-green-800 border-green-200'
+          }`}
+      >
+        WhatsApp Messaging
+      </button>
+
+      {activeTab === 'whatsapp' && <AdminWhatsApp />}
 
       {/* TAB 1: Daily Milk Distribution Manifest */}
       {activeTab === 'distribution' && (
