@@ -12,6 +12,8 @@ export default function AdminWhatsApp() {
 
   const lock = useRef(false);
 
+  const eligibleRows = rows.filter(r => r.eligible);
+
   async function api(data) {
     const { data: { session } } =
       await supabase.auth.getSession();
@@ -61,7 +63,7 @@ export default function AdminWhatsApp() {
 
     try {
       await load();
-      setNotice('Eligible customers loaded');
+      setNotice('Customer directory loaded');
     } catch (e) {
       setNotice(e.message);
     } finally {
@@ -91,7 +93,7 @@ export default function AdminWhatsApp() {
 
     try {
       const recipients = rows.filter(
-        r => selected.includes(r.phone)
+        r => r.eligible && selected.includes(r.phone)
       );
 
       for (const recipient of recipients) {
@@ -144,16 +146,43 @@ export default function AdminWhatsApp() {
       </h3>
 
       <p className="text-sm text-gray-600">
-        Send custom messages to verified, opted-in customers
-        with an active WhatsApp service window.
+        All registered and guest customers are listed.
+        Free custom messaging is available for opted-in
+        customers with an active service window.
       </p>
+
+      <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+        <strong className="text-green-800">
+          Free Messages Only
+        </strong>
+        <p className="text-xs text-gray-600">
+          Paid template messaging is disabled.
+          No automatic paid fallback.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="border rounded-xl p-3">
+          <small>Total Customers</small>
+          <div className="text-2xl font-bold">
+            {rows.length}
+          </div>
+        </div>
+
+        <div className="border rounded-xl p-3">
+          <small>Free Messaging Eligible</small>
+          <div className="text-2xl font-bold text-green-700">
+            {eligibleRows.length}
+          </div>
+        </div>
+      </div>
 
       <button
         disabled={busy}
         onClick={refresh}
         className="border rounded-xl p-3"
       >
-        Load Eligible Customers / History
+        Load All Customers / History
       </button>
 
       <label className="block font-semibold">
@@ -162,25 +191,25 @@ export default function AdminWhatsApp() {
           className="mr-2"
           disabled={busy}
           checked={
-            rows.length > 0 &&
-            selected.length === rows.length
+            eligibleRows.length > 0 &&
+            selected.length === eligibleRows.length
           }
           onChange={e =>
             setSelected(
               e.target.checked
-                ? rows.map(r => r.phone)
+                ? eligibleRows.map(r => r.phone)
                 : []
             )
           }
         />
-        Select All Eligible Customers ({rows.length})
+        Select All Eligible Customers ({eligibleRows.length})
       </label>
 
       <div className="max-h-64 overflow-auto border rounded-xl p-3">
 
         {rows.length === 0 && (
           <p className="text-gray-500">
-            No eligible customers loaded.
+            No customers loaded.
           </p>
         )}
 
@@ -192,7 +221,7 @@ export default function AdminWhatsApp() {
             <input
               type="checkbox"
               className="mr-2"
-              disabled={busy}
+              disabled={busy || !r.eligible}
               checked={selected.includes(r.phone)}
               onChange={e =>
                 setSelected(s =>
@@ -203,7 +232,19 @@ export default function AdminWhatsApp() {
               }
             />
 
-            {r.name} — {r.phone}
+            <span className="font-semibold">
+              {r.name || 'Customer'} — {r.phone}
+            </span>
+
+            <div className="ml-6 text-xs text-gray-500">
+              {r.customer_type}
+            </div>
+
+            <div className={`ml-6 text-xs font-semibold ${
+              r.eligible ? 'text-green-700' : 'text-amber-700'
+            }`}>
+              {r.eligibility_reason}
+            </div>
           </label>
         ))}
 
