@@ -15,7 +15,11 @@ const TEMPLATE_PARAMETERS = Object.freeze({
   smf_renewal_reminder: 2,
   smf_payment_due: 2,
   smf_invoice_pdf: 1,
-  smf_receipt_pdf: 1
+  smf_receipt_pdf: 1,
+  smf_admin_order_update: 10,
+  smf_admin_subscription_update: 10,
+  smf_admin_payment_update: 7,
+  smf_admin_delivery_update: 7
 });
 
 const LANGUAGES = new Set(['en', 'te', 'kn']);

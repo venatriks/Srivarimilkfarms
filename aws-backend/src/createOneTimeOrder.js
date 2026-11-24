@@ -394,11 +394,27 @@ async function runWhatsAppWorker(context, scheduled = false) {
   }
 
   if (context?.getRemainingTimeInMillis() >= 35000) {
-    return require('./whatsappWorker')
-      .processWhatsAppNotifications({
-        limit: 5,
-        context
-      });
+    const customerResults =
+      await require('./whatsappWorker')
+        .processWhatsAppNotifications({
+          limit: 5,
+          context
+        });
+
+    let adminResults = {};
+
+    try {
+      adminResults =
+        await require('./adminNotificationWorker')
+          .processAdminNotifications(db, context);
+    } catch {
+      console.error('Admin notification worker failed');
+    }
+
+    return {
+      customer: customerResults,
+      admin: adminResults
+    };
   }
 
   return { skipped: true };
