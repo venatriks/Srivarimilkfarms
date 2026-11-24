@@ -224,20 +224,29 @@ export const Home = () => {
                     <span className="text-xs text-stone-500 block">Farm Price</span>
                     <span className="text-xl font-bold text-[#0F3E2E]">₹{product.price}</span>
                     <span className="text-[11px] text-stone-500 font-medium"> / {product.unit}</span>
+                    {(product.inStock === false || Number(product.stockCount || 0) <= 0) && (
+                      <div className="mt-2">
+                        <span className="inline-block rounded-full bg-red-100 border border-red-200 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-2">
                     <button
+                      disabled={product.inStock === false || Number(product.stockCount || 0) <= 0 || !product.subscriptionAvailable}
                       onClick={() => addToCart(product, 1, 'subscription')}
-                      className="px-3 py-2 sm:px-3.5 sm:py-2 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1 shrink-0"
+                      className="px-3 py-2 sm:px-3.5 sm:py-2 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!user ? "Login required to subscribe" : "Subscribe for daily/alternate delivery"}
                     >
                       {!user && <Lock className="w-3 h-3 text-[#0F3E2E]" />}
                       <span>Subscribe</span>
                     </button>
                     <button
+                      disabled={product.inStock === false || Number(product.stockCount || 0) <= 0}
                       onClick={() => addToCart(product, 1, 'one-time')}
-                      className="px-3 py-2 sm:px-3.5 sm:py-2 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1 shrink-0"
+                      className="px-3 py-2 sm:px-3.5 sm:py-2 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!user ? "Login required to add to cart" : "One-time purchase"}
                     >
                       {!user && <Lock className="w-3 h-3 text-[#D4AF37]" />}
@@ -333,8 +342,9 @@ export const Home = () => {
                 </div>
 
                 <button
+                  disabled={!products[0] || products[0].inStock === false || Number(products[0].stockCount || 0) < Math.ceil(Number(calculatedDailyLiters)) || !products[0].subscriptionAvailable}
                   onClick={() => addToCart(products[0], Math.ceil(Number(calculatedDailyLiters)), 'subscription')}
-                  className="w-full py-3 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#18523f] transition-all shadow-md flex items-center justify-center space-x-2"
+                  className="w-full py-3 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#18523f] transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {!user && <Lock className="w-4 h-4 text-[#D4AF37]" />}
                   <span>Start {calculatedDailyLiters}L Daily Subscription</span>

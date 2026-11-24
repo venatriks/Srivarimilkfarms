@@ -216,13 +216,21 @@ export const Products = () => {
                   <span className="text-xs text-stone-400 block">Price</span>
                   <span className="text-xl sm:text-2xl font-bold text-[#0F3E2E]">₹{product.price}</span>
                   <span className="text-[11px] text-stone-500 font-medium"> / {product.unit}</span>
+                    {(product.inStock === false || Number(product.stockCount || 0) <= 0) && (
+                      <div className="mt-2">
+                        <span className="inline-block rounded-full bg-red-100 border border-red-200 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
                 </div>
 
                 <div className="flex items-center space-x-2">
                   {product.subscriptionAvailable && (
                     <button
+                      disabled={product.inStock === false || Number(product.stockCount || 0) <= 0 || !product.subscriptionAvailable}
                       onClick={() => addToCart(product, 1, 'subscription')}
-                      className="px-3 sm:px-3.5 py-2 sm:py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1 shrink-0"
+                      className="px-3 sm:px-3.5 py-2 sm:py-2.5 bg-[#D4AF37] text-[#0F3E2E] rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors shadow-sm flex items-center space-x-1 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!user ? "Login required to subscribe" : "Subscribe for daily/alternate delivery"}
                     >
                       {!user && <Lock className="w-3 h-3 text-[#0F3E2E]" />}
@@ -230,8 +238,9 @@ export const Products = () => {
                     </button>
                   )}
                   <button
+                    disabled={product.inStock === false || Number(product.stockCount || 0) <= 0}
                     onClick={() => addToCart(product, 1, 'one-time')}
-                    className="px-3 sm:px-3.5 py-2 sm:py-2.5 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1 shrink-0"
+                    className="px-3 sm:px-3.5 py-2 sm:py-2.5 bg-[#0F3E2E] text-white rounded-xl text-xs font-bold hover:bg-[#18523f] transition-colors shadow-sm flex items-center space-x-1 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                     title={!user ? "Login required to add to cart" : "One-time purchase"}
                   >
                     {!user ? <Lock className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Plus className="w-3.5 h-3.5" />}

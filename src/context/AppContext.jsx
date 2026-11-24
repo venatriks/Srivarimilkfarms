@@ -1822,6 +1822,57 @@ export const AppProvider = ({ children }) => {
     buyType = 'one-time',
     frequency = 'daily'
   ) => {
+    const currentProduct = products.find(
+      p => String(p.id) === String(product?.id)
+    );
+
+    const requestedQuantity = Number(quantity);
+
+    if (!currentProduct ||
+        currentProduct.inStock === false ||
+        Number(currentProduct.stockCount || 0) <= 0) {
+      showToast(
+        'This product is currently out of stock.',
+        'error'
+      );
+      return false;
+    }
+
+    if (!Number.isInteger(requestedQuantity) ||
+        requestedQuantity <= 0) {
+      showToast('Invalid product quantity.', 'error');
+      return false;
+    }
+
+    if (buyType === 'subscription' &&
+        !currentProduct.subscriptionAvailable) {
+      showToast(
+        'This product is not available for subscription.',
+        'error'
+      );
+      return false;
+    }
+
+    const existingQuantity = cart
+      .filter(item =>
+        String(item.productId) === String(currentProduct.id)
+      )
+      .reduce(
+        (total, item) => total + Number(item.quantity || 0),
+        0
+      );
+
+    if (existingQuantity + requestedQuantity >
+        Number(currentProduct.stockCount || 0)) {
+      showToast(
+        'Requested quantity exceeds available stock.',
+        'error'
+      );
+      return false;
+    }
+
+    product = currentProduct;
+
     if (
       buyType === 'subscription' &&
       !user
@@ -1920,6 +1971,36 @@ export const AppProvider = ({ children }) => {
 
   const updateCartQuantity =
     (cartItemId, delta) => {
+      const target = cart.find(item => item.id === cartItemId);
+
+      if (!target) return;
+
+      if (Number(delta) > 0) {
+        const currentProduct = products.find(
+          p => String(p.id) === String(target.productId)
+        );
+
+        const totalQuantity = cart
+          .filter(item =>
+            String(item.productId) === String(target.productId)
+          )
+          .reduce(
+            (total, item) => total + Number(item.quantity || 0),
+            0
+          );
+
+        if (!currentProduct ||
+            currentProduct.inStock === false ||
+            totalQuantity + Number(delta) >
+              Number(currentProduct.stockCount || 0)) {
+          showToast(
+            'Insufficient product stock.',
+            'error'
+          );
+          return;
+        }
+      }
+
       setCart(prev =>
         prev.map(item => {
           if (
