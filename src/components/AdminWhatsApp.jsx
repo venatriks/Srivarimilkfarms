@@ -10,9 +10,81 @@ export default function AdminWhatsApp() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
 
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All Customers');
+  const [eligibility, setEligibility] = useState('All');
+
+  const categories = [
+    'All Customers',
+    'Guest Order',
+    'One-Time Order',
+    'Prepaid Subscription',
+    'Postpaid Subscription',
+    'Registered Customer'
+  ];
+
   const lock = useRef(false);
 
   const eligibleRows = rows.filter(r => r.eligible);
+
+  const filteredRows = rows.filter(r => {
+    const query = search.trim().toLowerCase();
+
+    const name = String(r.name || '').toLowerCase();
+    const phone = String(r.phone || '');
+
+    const phoneQuery = query.replace(/[^0-9]/g, '');
+    const isPhoneQuery = /^[+0-9 ()-]+$/.test(query);
+
+    const matchesSearch =
+      !query ||
+      name.includes(query) ||
+      phone.includes(query) ||
+      (
+        isPhoneQuery &&
+        phoneQuery.length > 0 &&
+        phone.replace(/[^0-9]/g, '').includes(phoneQuery)
+      );
+
+    const customerCategories = String(r.customer_type || '')
+      .split('•')
+      .map(value => value.trim());
+
+    const matchesCategory =
+      category === 'All Customers' ||
+      customerCategories.includes(category);
+
+    const matchesEligibility =
+      eligibility === 'All' ||
+      (eligibility === 'free' && r.eligible === true) ||
+      (
+        eligibility === 'closed' &&
+        r.opted_in === true &&
+        r.window_open === false
+      ) ||
+      (
+        eligibility === 'consent' &&
+        r.opted_in !== true
+      );
+
+    return matchesSearch &&
+      matchesCategory &&
+      matchesEligibility;
+  });
+
+  const filteredEligibleRows =
+    filteredRows.filter(r => r.eligible === true);
+
+  const allFilteredSelected =
+    filteredEligibleRows.length > 0 &&
+    filteredEligibleRows.every(
+      r => selected.includes(r.phone)
+    );
+
+  function updateFilter(setter, value) {
+    setSelected([]);
+    setter(value);
+  }
 
   async function api(data) {
     const { data: { session } } =
@@ -92,8 +164,8 @@ export default function AdminWhatsApp() {
     let other = 0;
 
     try {
-      const recipients = rows.filter(
-        r => r.eligible && selected.includes(r.phone)
+      const recipients = filteredEligibleRows.filter(
+        r => selected.includes(r.phone)
       );
 
       for (const recipient of recipients) {
@@ -185,35 +257,121 @@ export default function AdminWhatsApp() {
         Load All Customers / History
       </button>
 
+      <div className="rounded-xl border p-4 space-y-3">
+
+        <input
+          type="search"
+          value={search}
+          disabled={busy}
+          onChange={e =>
+            updateFilter(setSearch, e.target.value)
+          }
+          placeholder="Search customer name or mobile number"
+          className="w-full border rounded-xl p-3"
+          aria-label="Search customers"
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+          <label className="block text-sm font-semibold">
+            Customer Category
+
+            <select
+              value={category}
+              disabled={busy}
+              onChange={e =>
+                updateFilter(setCategory, e.target.value)
+              }
+              className="w-full border rounded-xl p-3 mt-1 bg-white"
+            >
+              {categories.map(c => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-sm font-semibold">
+            Messaging Eligibility
+
+            <select
+              value={eligibility}
+              disabled={busy}
+              onChange={e =>
+                updateFilter(setEligibility, e.target.value)
+              }
+              className="w-full border rounded-xl p-3 mt-1 bg-white"
+            >
+              <option value="All">All Customers</option>
+              <option value="free">
+                Free Messaging Available
+              </option>
+              <option value="closed">
+                24-Hour Window Closed
+              </option>
+              <option value="consent">
+                Consent Required
+              </option>
+            </select>
+          </label>
+
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+
+          <p className="text-sm text-gray-600">
+            Showing {filteredRows.length} of {rows.length} customers
+            {' | '}
+            {filteredEligibleRows.length} eligible
+          </p>
+
+          <button
+            type="button"
+            disabled={busy}
+            className="text-sm font-semibold text-green-800 underline"
+            onClick={() => {
+              setSearch('');
+              setCategory('All Customers');
+              setEligibility('All');
+              setSelected([]);
+            }}
+          >
+            Clear Filters
+          </button>
+
+        </div>
+
+      </div>
+
       <label className="block font-semibold">
         <input
           type="checkbox"
           className="mr-2"
-          disabled={busy}
-          checked={
-            eligibleRows.length > 0 &&
-            selected.length === eligibleRows.length
-          }
+          disabled={busy || !filteredEligibleRows.length}
+          checked={allFilteredSelected}
           onChange={e =>
             setSelected(
               e.target.checked
-                ? eligibleRows.map(r => r.phone)
+                ? filteredEligibleRows.map(r => r.phone)
                 : []
             )
           }
         />
-        Select All Eligible Customers ({eligibleRows.length})
+        Select All Eligible Filtered Customers ({filteredEligibleRows.length})
       </label>
 
       <div className="max-h-64 overflow-auto border rounded-xl p-3">
 
-        {rows.length === 0 && (
+        {filteredRows.length === 0 && (
           <p className="text-gray-500">
-            No customers loaded.
+            {rows.length === 0
+              ? 'No customers loaded.'
+              : 'No customers match the selected filters.'}
           </p>
         )}
 
-        {rows.map(r => (
+        {filteredRows.map(r => (
           <label
             key={r.phone}
             className="block border-b py-2"
@@ -236,8 +394,29 @@ export default function AdminWhatsApp() {
               {r.name || 'Customer'} — {r.phone}
             </span>
 
-            <div className="ml-6 text-xs text-gray-500">
-              {r.customer_type}
+            <div className="ml-6 mt-1 flex flex-wrap gap-1">
+              {String(r.customer_type || 'Unclassified')
+                .split('•')
+                .map(value => value.trim())
+                .filter(Boolean)
+                .map(type => (
+                  <span
+                    key={type}
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      type === 'Prepaid Subscription'
+                        ? 'bg-green-100 text-green-800'
+                        : type === 'Postpaid Subscription'
+                        ? 'bg-purple-100 text-purple-800'
+                        : type === 'One-Time Order'
+                        ? 'bg-blue-100 text-blue-800'
+                        : type === 'Guest Order'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {type}
+                  </span>
+                ))}
             </div>
 
             <div className={`ml-6 text-xs font-semibold ${
