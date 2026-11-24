@@ -2,6 +2,58 @@ import React, { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { WHATSAPP_API_BASE_URL } from '../lib/apiConfig';
 
+const MESSAGE_STATUS = {
+  accepted: {
+    label: 'Accepted',
+    color: 'bg-gray-100 text-gray-700'
+  },
+  sent: {
+    label: 'Sent',
+    color: 'bg-gray-100 text-gray-700'
+  },
+  delivered: {
+    label: 'Delivered',
+    color: 'bg-green-100 text-green-800'
+  },
+  read: {
+    label: 'Read',
+    color: 'bg-blue-100 text-blue-800'
+  },
+  failed: {
+    label: 'Failed',
+    color: 'bg-red-100 text-red-800'
+  },
+  uncertain: {
+    label: 'Uncertain',
+    color: 'bg-amber-100 text-amber-800'
+  },
+  pending: {
+    label: 'Pending',
+    color: 'bg-amber-100 text-amber-800'
+  }
+};
+
+const WHATSAPP_ERROR_LABELS = {
+  '131026': 'Message undeliverable',
+  '131047': 'Customer service window expired',
+  '130429': 'Messaging rate limit reached',
+  '131056': 'Recipient messaging rate limit reached',
+  '131021': 'Sender and recipient are the same',
+  '131000': 'WhatsApp processing error'
+};
+
+function formatMessageTime(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata'
+  });
+}
+
 export default function AdminWhatsApp() {
   const [rows, setRows] = useState([]);
   const [history, setHistory] = useState([]);
@@ -136,6 +188,25 @@ export default function AdminWhatsApp() {
     try {
       await load();
       setNotice('Customer directory loaded');
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function refreshHistory() {
+    if (lock.current) return;
+
+    lock.current = true;
+    setBusy(true);
+
+    try {
+      const result = await api({ action: 'history' });
+
+      setHistory(result.history || []);
+      setNotice('Message delivery statuses refreshed');
     } catch (e) {
       setNotice(e.message);
     } finally {
@@ -462,23 +533,131 @@ export default function AdminWhatsApp() {
         {notice}
       </p>
 
-      <h4 className="font-bold text-lg">
-        Recent Message History
-      </h4>
+      <div className="flex flex-wrap items-center justify-between gap-3">
 
-      {history.map(h => (
-        <div key={h.id} className="border-b py-3">
-          <b>{h.phone} — {h.status}</b>
+        <h4 className="font-bold text-lg">
+          Recent Message History
+        </h4>
 
-          <p className="whitespace-pre-wrap">
-            {h.body}
-          </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={refreshHistory}
+          className="border rounded-xl px-4 py-2 text-sm font-semibold"
+        >
+          Refresh Message Status
+        </button>
 
-          <small className="text-gray-500">
-            {new Date(h.created_at).toLocaleString()}
-          </small>
-        </div>
-      ))}
+      </div>
+
+      <p className="text-xs text-gray-500">
+        Latest 50 messages. All timestamps are in IST.
+        Accepted does not mean delivered.
+        Read status depends on available read receipts.
+      </p>
+
+      {history.length === 0 && (
+        <p className="text-sm text-gray-500">
+          No message history available.
+        </p>
+      )}
+
+      {history.map(h => {
+        const status = MESSAGE_STATUS[h.status] || {
+          label: h.status || 'Unknown',
+          color: 'bg-gray-100 text-gray-700'
+        };
+
+        const errors = Array.isArray(h.failure_codes)
+          ? h.failure_codes
+          : [];
+
+        return (
+          <div
+            key={h.id}
+            className="border rounded-xl p-4 space-y-2"
+          >
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+
+              <b>{h.phone}</b>
+
+              <span className={
+                'rounded-full px-3 py-1 text-xs font-semibold ' +
+                status.color
+              }>
+                {status.label}
+              </span>
+
+            </div>
+
+            <p className="whitespace-pre-wrap break-words">
+              {h.body}
+            </p>
+
+            <div className="text-xs text-gray-500 space-y-1">
+
+              <div>
+                Submitted: {formatMessageTime(h.created_at)}
+              </div>
+
+              {h.sent_at && (
+                <div>
+                  Sent: {formatMessageTime(h.sent_at)}
+                </div>
+              )}
+
+              {h.delivered_at && (
+                <div className="text-green-700">
+                  Delivered: {formatMessageTime(h.delivered_at)}
+                </div>
+              )}
+
+              {h.read_at && (
+                <div className="text-blue-700">
+                  Read: {formatMessageTime(h.read_at)}
+                </div>
+              )}
+
+              {h.status === 'failed' && (
+                <div className="text-red-700 space-y-1">
+
+                  {h.failed_at && (
+                    <div>
+                      Failed: {formatMessageTime(h.failed_at)}
+                    </div>
+                  )}
+
+                  {errors.length > 0
+                    ? errors.map((error, index) => (
+                        <div key={index}>
+                          {WHATSAPP_ERROR_LABELS[String(error.code)]
+                            || 'WhatsApp reported a delivery error'}
+                          {' — Code: '}{error.code}
+                        </div>
+                      ))
+                    : (
+                        <div>
+                          Detailed failure reason unavailable.
+                        </div>
+                      )
+                  }
+
+                </div>
+              )}
+
+              {h.status === 'uncertain' && (
+                <div className="text-amber-700">
+                  Delivery outcome uncertain.
+                  Check history before retrying.
+                </div>
+              )}
+
+            </div>
+
+          </div>
+        );
+      })}
 
     </section>
   );

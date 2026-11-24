@@ -73,19 +73,23 @@ exports.handleAdminWhatsApp = async (event, headers) => {
       return reply(400, { error: 'Invalid request' });
     }
 
-    if (b.action === 'list') {
-      const { data, error } =
-        await db.rpc('admin_whatsapp_eligible');
+    if (b.action === 'history') {
+      const { data: history, error } =
+        await db.rpc('admin_whatsapp_message_history');
 
       if (error) throw error;
 
-      const { data: history, error: he } = await db
-        .from('admin_whatsapp_messages')
-        .select(
-          'id,phone,body,status,created_at,provider_message_id'
-        )
-        .order('created_at', { ascending: false })
-        .limit(50);
+      return reply(200, { history });
+    }
+
+    if (b.action === 'list') {
+      const { data, error } =
+        await db.rpc('admin_whatsapp_customers');
+
+      if (error) throw error;
+
+      const { data: history, error: he } =
+        await db.rpc('admin_whatsapp_message_history');
 
       if (he) throw he;
 
@@ -98,7 +102,9 @@ exports.handleAdminWhatsApp = async (event, headers) => {
     if (
       b.action !== 'send' ||
       !UUID.test(b.id || '') ||
-      !UUID.test(b.customer_id || '') ||
+      (b.customer_id !== null &&
+        !UUID.test(b.customer_id || '')) ||
+      typeof b.phone !== 'string' ||
       typeof b.body !== 'string' ||
       !b.body.trim() ||
       b.body.length > 4096
